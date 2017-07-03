@@ -3,6 +3,11 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
 
+''' 
+This is the power system simulation code and visualization framework
+'''
+
+
 # Load PyPower case and run power flow analysis
 c6 = pp.loadcase(pp.case6ww(), return_as_obj=True, expect_gencost=False, expect_areas=False)
 results, success = pp.runpf(c6)
