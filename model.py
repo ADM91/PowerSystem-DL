@@ -34,7 +34,20 @@ for i in range(n_bus):
               'V mag min': results['bus'][i, 12]}
     G.add_node(i, params)
 
+# Add generators and loads as secondary nodes
+# ------------- generator data -------------
+# bus, Pg, Qg, Qmax, Qmin, Vg, mBase, status, Pmax, Pmin, Pc1, Pc2,
+# Qc1min, Qc1max, Qc2min, Qc2max, ramp_agc, ramp_10, ramp_30, ramp_q, apf
+for i in range(n_gen):
+
+    params = {'bus': results['gen'][i, 0],
+              'Pg': results['gen'][i, 1],
+              'Qg': results['gen'][i, 2]}
+    G.add_node(i, params)
+
 # Add branches as edges
+# ---------------- branch data --------------------
+# fbus, tbus, r, x, b, rateA, rateB, rateC, ratio, angle, status, angmin, angmax
 for i in range(n_bra):
     # TODO: figure out how to add losses of each line
     params = {'MVA_inj': MVA_inj[i],

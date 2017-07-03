@@ -7,10 +7,10 @@ and RL models and gradually increase their complexities until computing limits o
 reached.  An optimistic (in terms of time) list of RL algorithms that will be investigated is listed below.
 
 The simplest IEEE standard power system model (case6ww) is the initial test model because it has only 6 generators
-and is easy to visualize and think about.  A steady state power flow simulation using \textbf{PyPower} (direct port of MATPOWER)
-will be used, then hopefully the project will graduate to a dynamic temporal simulation model: \textbf{PyPower-Dynamic}.
+and is easy to visualize and think about.  A steady state power flow simulation using **PyPower** (direct port of MATPOWER)
+will be used, then hopefully the project will graduate to a dynamic temporal simulation model: **PyPower-Dynamic**.
 Visualization of the data and power system network will be emphasized because it facilitates
-understanding of the problem and results.  The package \textbf{NetworkX} is used for graph visualization.
+understanding of the problem and results.  The package **NetworkX** is used for graph visualization.
 
 ## Current dependencies ##
 * pypower
@@ -24,11 +24,11 @@ Rotor angles (generators) / Voltage angles (buses)
 * Minimize maximum difference in angle
 * Minimize the difference on either side of fault
 Line loadings
-* Minimize the maximum (minimax) the percentage of rated load on each line
+* Minimize the maximum (minimax) the percentage of rated load flow on each line
 
 ## Control parameter brainstorm ##
-* Generator power setpoints
-* Generator droop constants
+* Generator power setpoints... (maybe not, this is solved in power flow sim)
+* Generator droop/ramp rates (this should only apply to varying loads, but exists as a parameter in MATPOWER and PyPower)
 
 ## Initial assumptions (these will be reduced in future implementations) ##
 * No possibility of cascading faults
