@@ -1,13 +1,13 @@
 # PowerSystem-RL #
 This project explores reinforcement learning (RL) methods on small
-scale power systems after faults.  The primary objective is for the RL agent to save the system from
-failure, and a second objective will be to minimize steady state rotor angle variation to set the system up for reconnection
+scale power systems after faults.  The primary objective is for the RL agent to prevent system failure, and a second
+objective is to minimize steady state rotor angle variation to set the system up for reconnection
 of the lost power line.  The envisioned progression of the project is to start with simple power system simulation
 and RL models and gradually increase their complexities until computing limits or time constraints are
 reached.  An optimistic (in terms of time) list of RL algorithms that will be investigated is listed below.
 
-The simplest IEEE standard power system model (case6ww) is the initial test model because it has only 6 generators
-and is easy to visualize and think about.  A steady state power flow simulation using **PyPower** (direct port of MATPOWER)
+The simplest IEEE power system models will be used as proof of concept because they are easy to visualize and think about.
+A steady state power flow simulation using **PyPower** (direct port of MATPOWER)
 will be used, then hopefully the project will graduate to a dynamic temporal simulation model: **PyPower-Dynamic**.
 Visualization of the data and power system network will be emphasized because it facilitates
 understanding of the problem and results.  The package **NetworkX** is used for graph visualization.
