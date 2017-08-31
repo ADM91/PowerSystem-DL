@@ -9,8 +9,13 @@ This is the power system simulation code and visualization framework
 
 
 # Load PyPower case and run power flow analysis
-c6 = pp.loadcase(pp.case9(), return_as_obj=True, expect_gencost=False, expect_areas=False)
-results, success = pp.runpf(c6)
+case = pp.case30()
+c6 = pp.loadcase(case, return_as_obj=True, expect_gencost=False, expect_areas=False)
+results_before, success = pp.runpf(c6)
+
+case['branch'][0, 10] = 0
+c6 = pp.loadcase(case, return_as_obj=True, expect_gencost=False, expect_areas=False)
+results_after, success = pp.runpf(c6)
 
 # Get result dimensions
 n_bra = c6['branch'].shape[0]
