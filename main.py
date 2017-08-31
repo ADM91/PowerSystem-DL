@@ -19,6 +19,7 @@ test_result = octave.runpf(test_case)
 # Distribute slack using LFC (droop constants)
 
 
+
 # SPA differences at each branch of base and test cases
 base_diffs = SPA_difference(base_result)
 test_diffs = SPA_difference(test_result)
