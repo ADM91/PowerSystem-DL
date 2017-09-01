@@ -1,7 +1,8 @@
+from copy import deepcopy
 import numpy as np
 
 
-def branch_remove(case, n_branches, branch=-1):
+def branch_deactivate(case, n_branches, branch=-1):
     """
     Removes a random line from the system.
     Specifying a branch will open the branch with the specified index
@@ -18,10 +19,13 @@ def branch_remove(case, n_branches, branch=-1):
     # select random integers in range 0 : n-1
     remove = np.random.choice(n, size=n_branches, replace=False)
 
-    # Remove the line(s)
-    case['branch'][remove, 10] = 0
+    # Create copy of case
+    new_case = deepcopy(case)
 
-    return case, remove
+    # Remove the line(s) from copy
+    new_case['branch'][remove, 10] = 0
+
+    return new_case, remove
 
 
 
