@@ -23,6 +23,7 @@ def branch_deactivate(case, n_branches, branch=-1):
     new_case = deepcopy(case)
 
     # Remove the line(s) from copy
+    # new_case['branch'][remove, 5:8] = [1e-5, 1e-5, 1e-5]
     new_case['branch'][remove, 10] = 0
 
     return new_case, remove
