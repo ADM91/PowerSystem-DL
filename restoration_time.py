@@ -13,7 +13,7 @@ def restoration_time(test_result_dist, test_result_opf, ramp_rates):
     # Difference in generation dispatch from previous case
     gen_diff = test_result_dist['gen'][:, 1] - test_result_opf['gen'][:, 1]
 
-    # Max time required to ramp
-    time = np.max(np.abs(gen_diff/ramp_rates))
+    # Time required to ramp
+    time = np.abs(gen_diff/ramp_rates)
 
-    return time
+    return np.max(time)

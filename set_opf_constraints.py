@@ -2,7 +2,7 @@ from copy import deepcopy
 import numpy as np
 
 
-def set_opf_constraints(test_case, branch_deactivated, max_SPA):
+def set_opf_constraints(test_case, branch, max_SPA):
     """
     This takes a  test case (with deactivated branches but original generator
     dispatch schedule) and sets the necessary constraints to run opf.
@@ -16,9 +16,8 @@ def set_opf_constraints(test_case, branch_deactivated, max_SPA):
     # Work with copy of test case
     test_case_opf = deepcopy(test_case)
 
-    # Constrain deactivated branches to max SPA
-    for i in branch_deactivated:
-        test_case_opf['branch'][i][11:13] = [-max_SPA, max_SPA]
+    # Constrain deactivated target branch to max SPA
+    test_case_opf['branch'][branch][11:13] = [-max_SPA, max_SPA]
 
     # Set cost function of each generator as "V" function around scheduled set point
     s = test_case_opf['gencost'].shape
