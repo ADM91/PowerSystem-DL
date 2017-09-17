@@ -4,7 +4,7 @@ from oct2py import octave
 from config import mp_opt
 
 
-def distribute_slack(case, slack_ind, droop_constants, converge_options):
+def distribute_slack(case, droop_constants, converge_options):
     """
     Redistributes the added slack generation to all generators according to participation factors
 
@@ -14,6 +14,8 @@ def distribute_slack(case, slack_ind, droop_constants, converge_options):
     :param converge_options: convergence options
     :return test_result_dist: test case result (faulted lines) with adjusted generation profile
     """
+
+    slack_ind = case['slack_ind']
 
     # Copy of test case worked with
     case_distr = deepcopy(case)
