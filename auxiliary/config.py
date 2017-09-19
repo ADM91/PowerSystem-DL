@@ -6,10 +6,10 @@ from oct2py import octave
 octave.addpath('/home/alexander/Documents/MATLAB/matpower6.0')
 
 # Set Matpower options
-mp_opt = octave.mpoption('verbose', 1,
+mp_opt = octave.mpoption('verbose', 0,
                          'out.sys_sum', 0,
-                         'out.gen', 1,
-                         'out.lim.all', 1,
+                         'out.gen', 0,
+                         'out.lim.all', 0,
                          'opf.ac.solver', 'MIPS',
                          'opf.ignore_angle_lim', 0)
 
@@ -29,6 +29,10 @@ line_ratings = np.array([158.2042239,  75.60872119,   73.32406193,   56.15290218
                         10.09399843,    4.11547005,    1.78165164,    5.90810207])
 
 line_ratings = line_ratings + 50
+
+
+# Ones indicate buses w/ dispatchable loads
+dispatchable_loads = np.array([0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1])
 
 # Modes: 'debug'
 mode = 'debug'

@@ -1,9 +1,26 @@
 from copy import deepcopy
 import numpy as np
 from oct2py import octave
+from auxiliary.config import dispatchable_loads
 
 
-def set_opf_constraints(test_case_opf, set_branch=[], max_SPA=365, set_gen=True, set_loads=False):
+def reshape_gencost(gencost):
+
+    # If it doesnt exist return an empty array
+    if type(gencost) == list:
+        return np.array([])
+
+    # Reshape the gencost matrix to allow piecewise linear cost function
+    elif gencost.shape[1] != 9:
+        gencost = gencost[:, 0:4]  # Cut off the unnecessary bullshit
+        return np.append(gencost, np.zeros((np.shape(gencost)[0], 6)), axis=1)
+
+    # If its already the right shape, return as is
+    else:
+        return gencost
+
+
+def set_opf_constraints(test_case, set_branch=(), max_SPA=365, set_gen=True, set_loads=True):
     """
     This takes a  test case (with deactivated branches but original generator
     dispatch schedule) and sets the necessary constraints to run opf.
@@ -15,11 +32,7 @@ def set_opf_constraints(test_case_opf, set_branch=[], max_SPA=365, set_gen=True,
     """
 
     # Work with copy of test case
-    # test_case_opf = deepcopy(test_case)
-
-    # Reshape the gencost matrix to allow piecewise linear cost function
-    test_case_opf['gencost'] = test_case_opf['gencost'][:, 0:4]
-    test_case_opf['gencost'] = np.append(test_case_opf['gencost'], np.zeros((np.shape(test_case_opf['gencost'])[0], 6)), axis=1)
+    test_case_opf = deepcopy(test_case)
 
     if set_branch:
         # Constrain deactivated target branch to max SPA
@@ -27,40 +40,49 @@ def set_opf_constraints(test_case_opf, set_branch=[], max_SPA=365, set_gen=True,
 
     if set_loads:
 
-        # Make loads curtailable/dispatchable
-        # first find loads in the case
-        load_ind = test_case_opf['bus'][:, 2] > 0
-        load_bus = test_case_opf['bus'][load_ind, 0]
-        real_loads = test_case_opf['bus'][load_ind, 2]
-        react_loads = test_case_opf['bus'][load_ind, 3]
+        # Snapshot of fixed loads, before we set the dispatchable ones to zero
+        real_loads = deepcopy(test_case_opf['bus'][:, 2])
+        react_loads = deepcopy(test_case_opf['bus'][:, 3])
 
-        # Set loads in the bus matrix to zero
-        test_case_opf['bus'][:, 2:4] = 0
+        # Set dispatchable loads in the bus matrix to zero
+        test_case_opf['bus'][dispatchable_loads == 1, 2:4] = 0
 
-        # Represent loads as negative generators!
-        for i in range(len(load_bus)):
-            # Gen setup: BUS, PG, QG, Qmax, Qmin, VG, MBASE, STATUS, PMAX, PMIN
-            new_gen = [load_bus[i],
-                       -real_loads[i],
-                       -react_loads[i],
-                       np.max([0, -react_loads[i]]),
-                       np.min([0, -react_loads[i]]),
-                       1,
-                       test_case_opf['baseMVA'],
-                       1,
-                       0,
-                       -real_loads[i]]
-            new_gen = np.append(new_gen, 11*[0]).reshape((1, -1))
+        # Reshape the gencost matrix so that we can add up to 3 points in piecewise cost function
+        test_case_opf['gencost'] = reshape_gencost(test_case_opf['gencost'])
 
-            # Append dispatchable load to gen matrix
-            test_case_opf['gen'] = np.append(test_case_opf['gen'], new_gen, axis=0)
+        # Represent dispatchable loads as negative generators!
+        for i in range(len(dispatchable_loads)):
 
-            # Append dispatchable load to gencost matrix
-            new_gencost = np.array([1, 0, 0, 2, -real_loads[i], -real_loads[i], 0, 0, 0, 0]).reshape((1,-1))
-            test_case_opf['gencost'] = np.append(test_case_opf['gencost'], new_gencost, axis=0)
+            # If load is identified as dispatchable
+            if dispatchable_loads[i]:
+                # Gen setup: BUS, PG, QG, Qmax, Qmin, VG, MBASE, STATUS, PMAX, PMIN
+                new_gen = [test_case_opf['bus'][i, 0],
+                           -real_loads[i],
+                           -react_loads[i],
+                           np.max([0, -react_loads[i]]),
+                           np.min([0, -react_loads[i]]),
+                           1,
+                           test_case_opf['baseMVA'],
+                           1,
+                           0,
+                           -real_loads[i]]
+                new_gen = np.append(new_gen, 11*[0]).reshape((1, -1))
 
-            # Two endpoints of gencost function
-            test_case_opf['gencost'][-1, 3] = 2
+                # Append dispatchable load to gen matrix
+                if type(test_case_opf['gen']) == list:
+                    test_case_opf['gen'] = deepcopy(new_gen)
+                else:
+                    test_case_opf['gen'] = np.append(test_case_opf['gen'], new_gen, axis=0)
+
+                # Append dispatchable load to gencost matrix
+                new_gencost = np.array([1, 0, 0, 2, -real_loads[i], -real_loads[i], 0, 0, 0, 0]).reshape((1, -1))
+                if test_case_opf['gencost'].size == 0:
+                    test_case_opf['gencost'] = deepcopy(new_gencost)
+                else:
+                    test_case_opf['gencost'] = np.append(test_case_opf['gencost'], new_gencost, axis=0)
+
+                # Two endpoints of all gencost functions
+                test_case_opf['gencost'][-1, 3] = 2
 
     if set_gen:
         # Set cost function of each non-load generator as "V" function around scheduled set point
@@ -70,8 +92,11 @@ def set_opf_constraints(test_case_opf, set_branch=[], max_SPA=365, set_gen=True,
         # Which generators are real? Only loop over the real ones
         legit_gen = octave.isload(test_case_opf['gen'])
 
-        if type(legit_gen) == int: legit_gen = [legit_gen,]
+        if type(legit_gen) == int:
+            legit_gen = [legit_gen, ]
 
+        # print(test_case_opf['gencost'])
+        # print(test_case_opf['gencost'].shape)
         for i, gen in enumerate(test_case_opf['gencost']):
 
             # Only perform on non-load generators

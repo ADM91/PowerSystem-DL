@@ -1,7 +1,9 @@
 from copy import deepcopy
+
 import numpy as np
 from oct2py import octave
-from config import mp_opt
+
+from auxiliary.config import mp_opt
 
 
 def distribute_slack(case, droop_constants, converge_options):
