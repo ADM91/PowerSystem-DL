@@ -32,14 +32,41 @@ class PowerSystem(object):
 
         # Deconstruct the ideal case
         self.broken_case = self.deactivate_branches()
-        #
+
         # # Detect and isolate islands
         self.islands = self.get_islands(self.broken_case)
         self.islands_evaluated = self.evaluate_islands()
-
         self.current_state = self.evaluate_state(self.islands_evaluated)
 
-        # Identify the broken state
+        # Identify the disconnected system elements
+        self.disconnected_elements = self.id_disconnected_elements()
+
+    def id_disconnected_elements(self):
+
+        # Initialize disconnected elements dictionary
+        elements = {'lines': [],
+                    'fixed loads': [],
+                    'generators': []}
+
+        # Line is disconnected if it appears as nan or is marked as status 0 in islands
+        for island in make_iterable(self.islands_evaluated):
+            branch_id = (island['branch'][:, 10] == 0).reshape((-1))
+            print(branch_id)
+            print(island['branch'][branch_id, 0:2])
+            elements['lines'] = np.append(elements['lines'], island['branch'][branch_id, 0:2]).reshape((-1, 2))
+
+            # TODO: This is where I left off
+            # The only missing loads and generators will exist on incomplete islands
+            if not (island['is_gen'] and island['is_load']):
+                pass
+                # elements['fixed loads'] = np.append(elements['fixed loads'][ ])
+
+        # Add nans to the list, they do not belong to any island
+        branch_id = np.isnan(self.current_state['real inj'][:, 2]).reshape((-1,))
+        print(branch_id)
+        elements['lines'] = np.append(elements['lines'], self.current_state['real inj'][branch_id, 0:2]).reshape((-1, 2))
+
+        return elements
 
     def initialize_state(self):
 
@@ -289,37 +316,71 @@ class PowerSystem(object):
         gen_bus = self.ideal_state['real gen'][:, 0].reshape((-1,))
         cap_order = np.argsort(gen_max, axis=0, kind='quicksort')
         width = 0.25
-        x = np.arange(gen_max.shape[0])
+        x = np.arange(len(gen_max))
 
         # Plot generator data
-        ax1 = plt.subplot2grid((3, 2), (0, 0))
-        ax1.bar(x, gen_max[cap_order], width*2, align='center', alpha=0.3, color='blue')
-        ax1.bar(x-width/2, gen_ideal[cap_order], width, align='center', alpha=0.9, color='green')
+        ax1 = plt.subplot2grid((2, 2), (0, 0))
+        ax1.bar(x, gen_max[cap_order], width*2, align='center', alpha=0.3, color='green')
+        ax1.bar(x-width/2, gen_ideal[cap_order], width, align='center', alpha=0.9, color='blue')
         ax1.bar(x+width/2, gen_current[cap_order], width, align='center', alpha=0.9, color='red')
         ax1.set_xticks(x)
         ax1.set_xticklabels(['bus %d' % i for i in gen_bus[cap_order]])
         plt.title('Generator schedule')
-        ax1.legend(['Gen limit', 'Ideal state', 'Current state'], loc='upper left')
+        ax1.legend(['Generator limit', 'Ideal state', 'Current state'], loc='upper left')
         ax1.set_ylabel('Power (MW)')
 
         # Prep dispatchable load data
-        # d_load_max = self.ideal_case['gen'][(octave.isload(self.ideal_case['gen']) == 1).reshape((-1)), 8].reshape((-1,))
         d_load_ideal = -self.ideal_state['dispatch load'][:, 1].reshape((-1,))
         d_load_current = -self.current_state['dispatch load'][:, 1].reshape((-1,))
         d_load_bus = self.ideal_state['dispatch load'][:, 0].reshape((-1,))
         d_load_order = np.argsort(d_load_ideal, axis=0, kind='quicksort')
-        width = 0.35
-        x = np.arange(d_load_ideal.shape[0])
+        width = 0.5
+        x1 = np.arange(len(d_load_ideal))
 
-        # Plot dispatchable load data
-        ax2 = plt.subplot2grid((3, 2), (0, 1))
-        ax2.bar(x, d_load_ideal[d_load_order], width, align='center', alpha=0.3, color='green')
-        ax2.bar(x, d_load_current[d_load_order], width, align='center', alpha=0.9, color='red')
-        ax2.set_xticks(x)
-        ax2.set_xticklabels(['bus %d' % i for i in d_load_bus[d_load_order]])
-        plt.title('Dispatchable loads')
+        # Prep fixed load data
+        f_load_ideal = self.ideal_state['fixed load'][:, 1].reshape((-1,))
+        f_load_current = self.current_state['fixed load'][:, 1].reshape((-1,))
+        f_load_bus = self.ideal_state['fixed load'][:, 0].reshape((-1,))
+        f_load_order = np.argsort(f_load_ideal, axis=0, kind='quicksort')
+        x2 = np.arange(len(x1) + 1, len(x1) + 1 + len(f_load_ideal))
+
+        # Plot load data
+        ax2 = plt.subplot2grid((2, 2), (0, 1))
+        ax2.bar(x1, d_load_ideal[d_load_order], width, align='center', alpha=0.3, color='blue')
+        ax2.bar(x1, d_load_current[d_load_order], width, align='center', alpha=0.9, color='red')
+        ax2.bar(x2, f_load_ideal[f_load_order], width, align='center', alpha=0.3, color='blue')
+        ax2.bar(x2, f_load_current[f_load_order], width, align='center', alpha=0.9, color='red')
+        ax2.set_xticks(np.concatenate((x1, x2)))
+        ticks = np.concatenate((['b %d' % i for i in d_load_bus[d_load_order]], ['b %d' % i for i in f_load_bus[f_load_order]]))
+        ax2.set_xticklabels(ticks)
+        plt.title('Load Profile')
         ax2.legend(['Ideal load', 'Current load'], loc='upper left')
         ax2.set_ylabel('Power (MW)')
+
+        # Prep line loadings data
+        mva_rating = self.ideal_case['branch'][:, 5].reshape((-1,))
+        real_inj_ideal = np.abs(self.ideal_state['real inj'][:, 2].reshape((-1,)))
+        real_inj_current = np.abs(self.current_state['real inj'][:, 2].reshape((-1,)))
+        real_inj_buses = np.abs(self.ideal_state['real inj'][:, 0:2].reshape((-1, 2)))
+        line_order = np.argsort(mva_rating, axis=0, kind='quicksort')
+        width = 0.25
+        x = np.arange(len(mva_rating))
+
+        # Plot line data
+        ax3 = plt.subplot2grid((2, 2), (1, 0), colspan=2)
+        ax3.bar(x, mva_rating[line_order], width*2, align='center', alpha=0.3, color='green')
+        ax3.bar(x-width/2, real_inj_ideal[line_order], width, align='center', alpha=0.9, color='blue')
+        ax3.bar(x+width/2, real_inj_current[line_order], width, align='center', alpha=0.9, color='red')
+        ax3.set_xticks(x)
+        ticks = ['%d - %d' % (i[0], i[1]) for i in real_inj_buses[line_order]]
+        ax3.set_xticklabels(ticks)
+        plt.title('Line loadings')
+        ax3.legend(['Line limit', 'Ideal load', 'Current load'], loc='upper left')
+        ax3.set_ylabel('Power (MW)')
+        plt.xlim([-1, len(line_order)])
+
+        plt.tight_layout()
+
 
 
 
