@@ -30,6 +30,7 @@ base_case['branch'][:, 5] = line_ratings  # Have to add line ratings
 base_result = octave.runpf(base_case, mp_opt)
 
 ps = PowerSystem(base_result, n_deactivated=8)
+ps.visualize_state()
 
 for i, island in enumerate(ps.islands):
     print('island %s: load %s' % (i, island['is_load']))
@@ -38,8 +39,8 @@ for i, island in enumerate(ps.islands):
 # -----------------
 
 # What happened?
-ps.islands_constrained[0]['gencost']
-ps.islands_state[0]['gencost']  # For some reason, the gencost matrix is reset after running opf
+ps.islands[0]['gencost']
+ps.islands[0]['gencost']  # For some reason, the gencost matrix is reset after running opf
 
 # TODO: Next I want to create a state vis function in the PowerSystem class
 # TODO: make sure that Blackout islands work -- don't currently
