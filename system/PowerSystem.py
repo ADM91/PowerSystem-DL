@@ -41,6 +41,15 @@ class PowerSystem(object):
         # Identify the disconnected system elements
         self.disconnected_elements = self.id_disconnected_elements()
 
+    def convert_to_mpc(self):
+        # Converts the evaluated islands back to a matpower case so it can be ran again
+        count = 0
+        for island in make_iterable(self.islands_evaluated):
+            obj = octave.opf_model(island)
+            self.islands[count] = octave.get_mpc(obj)
+            count += 1
+
+
     def id_disconnected_elements(self):
 
         # Initialize disconnected elements dictionary
@@ -48,23 +57,26 @@ class PowerSystem(object):
                     'fixed loads': [],
                     'generators': []}
 
-        # Line is disconnected if it appears as nan or is marked as status 0 in islands
+        # Line is disconnected if it appears as nan in current state or is marked as status 0 in islands
         for island in make_iterable(self.islands_evaluated):
             branch_id = (island['branch'][:, 10] == 0).reshape((-1))
-            print(branch_id)
-            print(island['branch'][branch_id, 0:2])
             elements['lines'] = np.append(elements['lines'], island['branch'][branch_id, 0:2]).reshape((-1, 2))
-
-            # TODO: This is where I left off
-            # The only missing loads and generators will exist on incomplete islands
-            if not (island['is_gen'] and island['is_load']):
-                pass
-                # elements['fixed loads'] = np.append(elements['fixed loads'][ ])
 
         # Add nans to the list, they do not belong to any island
         branch_id = np.isnan(self.current_state['real inj'][:, 2]).reshape((-1,))
-        print(branch_id)
         elements['lines'] = np.append(elements['lines'], self.current_state['real inj'][branch_id, 0:2]).reshape((-1, 2))
+
+        # The missing fixed loads will be nan in current state
+        bus_id = np.isnan(self.current_state['fixed load'][:, 1]).reshape((-1,))
+        elements['fixed loads'] = self.current_state['fixed load'][bus_id, 0].reshape((-1, 1))
+
+        # Or they could be equal to zero
+        bus_id = (self.current_state['fixed load'][:, 1] == 0).reshape((-1,))
+        elements['fixed loads'] = np.append(elements['fixed loads'], self.current_state['fixed load'][bus_id, 0].reshape((-1, 1)))
+
+        # The off-line generators will also appear as nan
+        bus_id = np.isnan(self.current_state['real gen'][:, 1]).reshape((-1,))
+        elements['generators'] = self.current_state['real gen'][bus_id, 0].reshape((-1, 1))
 
         return elements
 
@@ -136,14 +148,6 @@ class PowerSystem(object):
 
         return opf_result
 
-    @staticmethod
-    def get_losses(case):
-
-        # Evaluate system losses
-        case['losses'] = np.real(np.sum(octave.get_losses(case['baseMVA'], case['bus'], case['branch'])))
-
-        return case
-
     def deactivate_branches(self):
         """
         Removes random lines from the system.
@@ -164,31 +168,6 @@ class PowerSystem(object):
         new_case['disconnected'] = remove
 
         return new_case
-
-    @staticmethod
-    def is_load_is_gen(case_list):
-
-        # Flag if there is gen and or load
-        for island in make_iterable(case_list):
-
-            # Does the island have loads?
-            if np.all(island['bus'][:, 2:4] == 0) and np.all(octave.isload(island['gen']) == 0):  # True for no loads
-                island['is_load'] = 0
-            else:
-                island['is_load'] = 1
-
-            # Are there generators?
-            if np.sum(octave.isload(island['gen']) == 0) > 0:
-                island['is_gen'] = 1
-            else:
-                # If there are no generators, we can stop here
-                island['is_gen'] = 0
-
-        # Reshape case list if it is a oct2py cell
-        if type(case_list) == oct2py.io.Cell:
-            return case_list.reshape((-1))
-        else:
-            return case_list
 
     def get_islands(self, case):
         """
@@ -221,18 +200,6 @@ class PowerSystem(object):
                     island['slack_ind'] = np.where(island['bus'][:, 1] == 3)
 
         return islands
-
-    def reconnect_islands(self):
-        pass
-
-    def reconnect_buses(self):
-        pass
-
-    def reconnect_load(self):
-        pass
-
-    def reconnect_gen(self):
-        pass
 
     def evaluate_state(self, case_list):
 
@@ -381,7 +348,83 @@ class PowerSystem(object):
 
         plt.tight_layout()
 
+    def action_line(self, bus_ids):
+        """Does the line connect islands?"""
+
+        # Check islands to find bus 1
+        island_1 = None
+        for i, island in enumerate(make_iterable(self.islands)):
+            if np.any(island['bus'][:, 0] == bus_ids[0]):
+                island_1 = i
+
+        print(island_1)
+
+        # Check islands to find bus 2
+        island_2 = None
+        for i, island in enumerate(make_iterable(self.islands)):
+            if np.any(island['bus'][:, 0] == bus_ids[1]):
+                island_2 = i
+
+        print(island_2)
+
+        # If islands are same, its simple
+        if island_1 == island_2 and island_1 is not None:
+            ind = np.all(self.islands[i]['branch'][:, 0:2] == bus_ids, axis=1)
+            print(ind)
+            self.islands[i]['branch'][ind, 10] = 1  # Change branch status to 1 (in-service)
+
+        # If islands differ, we have to combine their case structures!
+        else:
+            print('Connecting islands %s and %s' % (island_1, island_2))
+
+            new_island = deepcopy(self.islands[island_1])
+            new_island['bus'] = np.append(new_island['bus'], self.islands[island_2]['bus'], axis=0)
+            new_island['branch'] = np.append(new_island['branch'], self.islands[island_2]['branch'], axis=0)
+            new_island['gen'] = np.append(new_island['gen'], self.islands[island_2]['gen'], axis=0)
+            new_island['gencost'] = np.append(new_island['gencost'], self.islands[island_2]['gencost'], axis=0)
+
+            self.islands
+
+            # Rememeber to remove one of the swing buses!
 
 
 
+    def action_load(self, bus_id):
+        pass
 
+    def action_gen(self, bus_id):
+        pass
+
+
+    @staticmethod
+    def get_losses(case):
+
+        # Evaluate system losses
+        case['losses'] = np.real(np.sum(octave.get_losses(case['baseMVA'], case['bus'], case['branch'])))
+
+        return case
+
+    @staticmethod
+    def is_load_is_gen(case_list):
+
+        # Flag if there is gen and or load
+        for island in make_iterable(case_list):
+
+            # Does the island have loads?
+            if np.all(island['bus'][:, 2:4] == 0) and np.all(octave.isload(island['gen']) == 0):  # True for no loads
+                island['is_load'] = 0
+            else:
+                island['is_load'] = 1
+
+            # Are there generators?
+            if np.sum(octave.isload(island['gen']) == 0) > 0:
+                island['is_gen'] = 1
+            else:
+                # If there are no generators, we can stop here
+                island['is_gen'] = 0
+
+        # Reshape case list if it is a oct2py cell
+        if type(case_list) == oct2py.io.Cell:
+            return case_list.reshape((-1))
+        else:
+            return case_list

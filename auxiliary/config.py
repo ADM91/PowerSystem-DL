@@ -11,7 +11,8 @@ mp_opt = octave.mpoption('verbose', 0,
                          'out.gen', 0,
                          'out.lim.all', 0,
                          'opf.ac.solver', 'MIPS',
-                         'opf.ignore_angle_lim', 0)
+                         'opf.ignore_angle_lim', 0,
+                         'opf.init_from_mpc', 1)
 
 # Constants for the 5 generators in case 14
 case14_droop_constants = np.array([3, 4, 6, 2, 5])  # in percent

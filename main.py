@@ -18,6 +18,7 @@ from system.check_extract_islands import check_extract_islands
 # Test code
 # -----------------
 
+import numpy as np
 from system.PowerSystem import PowerSystem
 from oct2py import octave
 from auxiliary.config import mp_opt, \
@@ -28,6 +29,10 @@ from auxiliary.config import mp_opt, \
 base_case = octave.loadcase('case14')
 base_case['branch'][:, 5] = line_ratings  # Have to add line ratings
 base_result = octave.runpf(base_case, mp_opt)
+
+# TODO: if there is opf convergence failure, set island to blackout
+# TODO: make sure that when I run opf, its starting condition is the last state
+# TODO: to study effect of changing load shedding cost use matpower function modcost
 
 ps = PowerSystem(base_result, n_deactivated=8)
 ps.visualize_state()
