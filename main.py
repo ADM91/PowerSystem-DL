@@ -31,7 +31,6 @@ base_case['branch'][:, 5] = line_ratings  # Have to add line ratings
 base_result = octave.runpf(base_case, mp_opt)
 
 # TODO: if there is opf convergence failure, set island to blackout
-# TODO: make sure that when I run opf, its starting condition is the last state
 # TODO: to study effect of changing load shedding cost use matpower function modcost
 
 ps = PowerSystem(base_result, n_deactivated=8)
@@ -41,14 +40,34 @@ for i, island in enumerate(ps.islands):
     print('island %s: load %s' % (i, island['is_load']))
     print('island %s: gen %s' % (i, island['is_gen']))
 
+
+dis_el = ps.disconnected_elements
+
+ps.current_state['losses']
+
+# Reconnect a line
+# ps.action_line(dis_el['lines'][0])
+ps.action_line([4,9])
+
+# TODO: Something is happening during re-evaluation causing the gencost matrix to go back to generic polynomial cost functions
+# Evaluate islands
+ps.evaluate_islands()
+
+# Get system state
+ps.current_state = ps.evaluate_state(ps.islands_evaluated)
+
+ps.current_state['losses']
+
+# Plot the state
+ps.visualize_state(fig_num=5)
+
 # -----------------
 
 # What happened?
 ps.islands[0]['gencost']
 ps.islands[0]['gencost']  # For some reason, the gencost matrix is reset after running opf
 
-# TODO: Next I want to create a state vis function in the PowerSystem class
-# TODO: make sure that Blackout islands work -- don't currently
+
 
 
 # -----------------

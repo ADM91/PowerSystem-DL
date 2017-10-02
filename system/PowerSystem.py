@@ -35,7 +35,13 @@ class PowerSystem(object):
 
         # # Detect and isolate islands
         self.islands = self.get_islands(self.broken_case)
-        self.islands_evaluated = self.evaluate_islands()
+
+        # TODO: if there are islands without loads or gen, treat all elements within island as deactivated (add to list)
+        # Islands evalutated
+        self.islands_evaluated = []
+        self.evaluate_islands()
+
+        # Get current state
         self.current_state = self.evaluate_state(self.islands_evaluated)
 
         # Identify the disconnected system elements
@@ -133,20 +139,18 @@ class PowerSystem(object):
     def evaluate_islands(self):
 
         # Loop through the islands
-        opf_result = list()
+        self.islands_evaluated = list()
         for island in make_iterable(self.islands):
 
             # Only run for islands with both load and generation
             if island['is_gen'] and island['is_load']:
                 result = octave.runopf(island, mp_opt)
                 result = self.get_losses(result)
-                opf_result.append(result)
+                self.islands_evaluated.append(result)
 
             else:
                 island['losses'] = 0
-                opf_result.append(island)
-
-        return opf_result
+                self.islands_evaluated.append(island)
 
     def deactivate_branches(self):
         """
@@ -201,80 +205,85 @@ class PowerSystem(object):
 
         return islands
 
-    def evaluate_state(self, case_list):
+    def evaluate_state(self, island_list):
 
         # Initialize the current state dictionary (has same elements as the ideal)
-        current_state = self.initialize_state()
+        state = self.initialize_state()
 
         # Loop through islands and collect info
-        for island in make_iterable(case_list):
+        for island in make_iterable(island_list):
 
             # If there is both generation and load
             if island['is_gen'] and island['is_load']:
 
+                print('There is gen and load, Im going to the opf output to pull data')
+
                 # Fill in generator states for island i
                 gen_ind = make_iterable(octave.isload(island['gen']) == 0).reshape((-1,))
                 for bus_id in island['gen'][gen_ind, 0]:
-                    ind1 = (current_state['real gen'][:, 0] == bus_id).reshape((-1,))
+                    ind1 = (state['real gen'][:, 0] == bus_id).reshape((-1,))
                     ind2 = (island['gen'][gen_ind, 0] == bus_id).reshape((-1,))
-                    current_state['real gen'][ind1, 1] = island['gen'][gen_ind, 1][ind2]
+                    state['real gen'][ind1, 1] = island['gen'][gen_ind, 1][ind2]
 
                 # Fill in dispatchable load states for island i
                 d_load_ind = make_iterable(octave.isload(island['gen']) == 1).reshape((-1,))
                 for bus_id in island['gen'][d_load_ind, 0]:
-                    ind1 = (current_state['dispatch load'][:, 0] == bus_id).reshape((-1,))
+                    ind1 = (state['dispatch load'][:, 0] == bus_id).reshape((-1,))
                     ind2 = (island['gen'][d_load_ind, 0] == bus_id).reshape((-1,))
-                    current_state['dispatch load'][ind1, 1] = island['gen'][d_load_ind, 1][ind2]
+                    state['dispatch load'][ind1, 1] = island['gen'][d_load_ind, 1][ind2]
 
                 # Fill fixed load states for island i
                 f_load_ind = make_iterable(np.any(island['bus'][:, 2:4] > 0, axis=1)).reshape((-1,))
                 for bus_id in island['bus'][f_load_ind, 0]:
-                    ind1 = (current_state['fixed load'][:, 0] == bus_id).reshape((-1,))
+                    ind1 = (state['fixed load'][:, 0] == bus_id).reshape((-1,))
                     ind2 = (island['bus'][f_load_ind, 0] == bus_id).reshape((-1,))
-                    current_state['fixed load'][ind1, 1] = island['bus'][f_load_ind, 2][ind2]
+                    state['fixed load'][ind1, 1] = island['bus'][f_load_ind, 2][ind2]
 
                 # Fill real injection to each line for island i
                 for from_to in island['branch'][:, [0, 1, 13, 14]]:
                     # print(from_to)
-                    ind1 = np.all(current_state['real inj'][:, 0:2] == from_to[0:2], axis=1)
-                    current_state['real inj'][ind1, 2] = from_to[2]
-                    current_state['reactive inj'][ind1, 2] = from_to[3]
+                    ind1 = np.all(state['real inj'][:, 0:2] == from_to[0:2], axis=1)
+                    state['real inj'][ind1, 2] = from_to[2]
+                    state['reactive inj'][ind1, 2] = from_to[3]
 
             # If either generation or load is missing
             else:
+
+                print('Gen or load is missing :(')
+
                 # Fill in generator states for island i
                 gen_ind = make_iterable(octave.isload(island['gen']) == 0).reshape((-1,))
                 for bus_id in island['gen'][gen_ind, 0]:
-                    ind1 = (current_state['real gen'][:, 0] == bus_id).reshape((-1,))
-                    current_state['real gen'][ind1, 1] = 0
+                    ind1 = (state['real gen'][:, 0] == bus_id).reshape((-1,))
+                    state['real gen'][ind1, 1] = 0
 
                 # Fill in dispatchable load states for island i
                 d_load_ind = make_iterable(octave.isload(island['gen']) == 1).reshape((-1,))
                 for bus_id in island['gen'][d_load_ind, 0]:
-                    ind1 = (current_state['dispatch load'][:, 0] == bus_id).reshape((-1,))
-                    current_state['dispatch load'][ind1, 1] = 0
+                    ind1 = (state['dispatch load'][:, 0] == bus_id).reshape((-1,))
+                    state['dispatch load'][ind1, 1] = 0
 
                 # Fill fixed load states for island i
                 f_load_ind = make_iterable(np.any(island['bus'][:, 2:4] > 0, axis=1)).reshape((-1,))
                 for bus_id in island['bus'][f_load_ind, 0]:
-                    ind1 = (current_state['fixed load'][:, 0] == bus_id).reshape((-1,))
-                    current_state['fixed load'][ind1, 1] = 0
+                    ind1 = (state['fixed load'][:, 0] == bus_id).reshape((-1,))
+                    state['fixed load'][ind1, 1] = 0
 
                 # Fill real injection to each line for island i
                 for from_to in island['branch'][:, [0, 1, 13, 14]]:
-                    ind1 = np.all(current_state['real inj'][:, 0:2] == from_to[0:2], axis=1)
-                    current_state['real inj'][ind1, 2] = 0
-                    current_state['reactive inj'][ind1, 2] = 0
+                    ind1 = np.all(state['real inj'][:, 0:2] == from_to[0:2], axis=1)
+                    state['real inj'][ind1, 2] = 0
+                    state['reactive inj'][ind1, 2] = 0
 
             # Aggregate losses
-            current_state['losses'] += island['losses']
+            state['losses'] += island['losses']
 
-        return current_state
+        return state
 
-    def visualize_state(self):
+    def visualize_state(self, fig_num=1):
 
         # Initialize figure
-        plt.figure(1, figsize=(12, 12))
+        plt.figure(fig_num, figsize=(12, 12))
 
         # Prep generator data
         gen_max = self.ideal_case['gen'][(octave.isload(self.ideal_case['gen']) == 0).reshape((-1)), 8].reshape((-1,))
@@ -351,13 +360,22 @@ class PowerSystem(object):
     def action_line(self, bus_ids):
         """Does the line connect islands?"""
 
+        print('Connected lines')
+        print(self.islands[0]['branch'][:, 10])
+        print('\n')
+
+        print('bus ids')
+        print(bus_ids)
+        print('\n')
+
+
         # Check islands to find bus 1
         island_1 = None
         for i, island in enumerate(make_iterable(self.islands)):
             if np.any(island['bus'][:, 0] == bus_ids[0]):
                 island_1 = i
 
-        print(island_1)
+        print('island 1: %s\n' % island_1)
 
         # Check islands to find bus 2
         island_2 = None
@@ -365,29 +383,96 @@ class PowerSystem(object):
             if np.any(island['bus'][:, 0] == bus_ids[1]):
                 island_2 = i
 
-        print(island_2)
+        print('island 2: %s\n' % island_2)
+
 
         # If islands are same, its simple
+        # TODO: Need to identify all corner cases (ex. can you have a line with two None buses?)
         if island_1 == island_2 and island_1 is not None:
-            ind = np.all(self.islands[i]['branch'][:, 0:2] == bus_ids, axis=1)
+            print('Line does not connect islands\n')
+            ind = np.all(self.islands[island_1]['branch'][:, 0:2] == bus_ids, axis=1)
+            # print(self.islands[island_1]['branch'][:, 0:2])
+            # print(self.islands[island_1]['branch'][:, 0:2] == bus_ids)
+            # print(ind)
+            # print('\n')
+
+            # Need to set opf contraints and run opf
+            self.islands[island_1]['branch'][ind, 10] = 1  # Change branch status to 1 (in-service)
+
+            # Show reconection of line
+            print('Connected lines')
+            print(self.islands[island_1]['branch'][:, 10])
+
+        # In these cases, add the line and energize/enable the line to the island
+        # Turns out that in these cases, energizing a line with nothing on the None end, convergence failure occurs!!
+        # Convergence failure occured when connecting line 1-2, which is typically a very high load line...
+        # Current method worked fine on smaller lines.
+        # How do I fix this? Add a load or gen at the new bus?
+        elif island_1 is None and island_2 is not None:
+            print('Line connects to None\n')
+            # Add the missing bus (bus 1) from ideal case
+            ind = self.ideal_case['bus'][:, 0] == bus_ids[0]
             print(ind)
-            self.islands[i]['branch'][ind, 10] = 1  # Change branch status to 1 (in-service)
+            self.islands[island_2]['bus'] = np.append(self.islands[island_2]['bus'],
+                                                      self.ideal_case['bus'][ind, :], axis=0)
+
+            # Add the missing branch from ideal case
+            ind = np.all(self.ideal_case['branch'][:, 0:2] == bus_ids, axis=1)
+            print(ind)
+            self.islands[island_2]['branch'] = np.append(self.islands[island_2]['branch'],
+                                                         self.ideal_case['branch'][ind, :], axis=0)
+
+        elif island_2 is None and island_1 is not None:
+            print('Line connects to None\n')
+            # Add the missing bus (bus 2) from ideal case
+            ind = self.ideal_case['bus'][:, 0] == bus_ids[1]
+            print(ind)
+            self.islands[island_1]['bus'] = np.append(self.islands[island_1]['bus'],
+                                                      self.ideal_case['bus'][ind, :], axis=0)
+
+            # Add the missing branch from ideal case
+            ind = np.all(self.ideal_case['branch'][:, 0:2] == bus_ids, axis=1)
+            print(ind)
+            self.islands[island_1]['branch'] = np.append(self.islands[island_1]['branch'],
+                                                         self.ideal_case['branch'][ind, :], axis=0)
 
         # If islands differ, we have to combine their case structures!
+        # TODO: this needs debugging
         else:
-            print('Connecting islands %s and %s' % (island_1, island_2))
+            print('Connecting islands %s and %s \n' % (island_1, island_2))
 
-            new_island = deepcopy(self.islands[island_1])
-            new_island['bus'] = np.append(new_island['bus'], self.islands[island_2]['bus'], axis=0)
-            new_island['branch'] = np.append(new_island['branch'], self.islands[island_2]['branch'], axis=0)
-            new_island['gen'] = np.append(new_island['gen'], self.islands[island_2]['gen'], axis=0)
-            new_island['gencost'] = np.append(new_island['gencost'], self.islands[island_2]['gencost'], axis=0)
+            # Append all of island 2 to island 1
+            # self.islands[island_1] = deepcopy(self.islands[island_1])
+            self.islands[island_1]['bus'] = np.append(self.islands[island_1]['bus'], self.islands[island_2]['bus'], axis=0)
+            self.islands[island_1]['branch'] = np.append(self.islands[island_1]['branch'], self.islands[island_2]['branch'], axis=0)
+            self.islands[island_1]['gen'] = np.append(self.islands[island_1]['gen'], self.islands[island_2]['gen'], axis=0)
+            self.islands[island_1]['gencost'] = np.append(self.islands[island_1]['gencost'], self.islands[island_2]['gencost'], axis=0)
 
-            self.islands
+            # Delete island 2
+            self.islands = np.delete(self.islands, island_2)
 
-            # Rememeber to remove one of the swing buses!
+            # Remember: to remove the weaker of the swing buses!
+            # ind = self.islands[island_1]['bus'][:, 1] == 3
+            # print(ind)
+            # bus_id = self.islands[island_1]['bus'][ind, 0]
+            # print(bus_id)
+            # gen_ind = self.islands[island_1]['gen'][:, 0] == bus_id
+            # print(gen_ind)
+            # gen_cap = self.islands[island_1]['gen'][gen_ind, 8]
+            # print(gen_cap)
+            # gen_weak_ind = self.islands[island_1]['gen'][:, 8] == np.min(gen_cap)
+            # print(gen_weak_ind)
+            # gen_weak_bus_id = self.islands[island_1]['gen'][gen_weak_ind, 0]
+            # print(gen_weak_bus_id)
+            # weak_bus_ind = self.islands[island_1]['bus'][:, 0] == gen_weak_bus_id
+            # print(weak_bus_ind)
+            #
+            # # Set weak bus type to 1 (PQ bus)
+            # self.islands[island_1]['bus'][weak_bus_ind, 1] = 1
 
-
+        # Update disconnected element dictionary
+        ind = np.all(self.disconnected_elements['lines'][:, 0:2] == bus_ids, axis=1)
+        self.disconnected_elements['lines'] = np.delete(self.disconnected_elements['lines'], np.where(ind), 0)
 
     def action_load(self, bus_id):
         pass
