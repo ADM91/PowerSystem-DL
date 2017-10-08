@@ -33,19 +33,23 @@ class PowerSystem(object):
         # Deconstruct the ideal case
         self.broken_case = self.deactivate_branches()
 
-        # # Detect and isolate islands
-        self.islands = self.get_islands(self.broken_case)
+        # # Detect and isolate islands, identify blackout zone
+        # self.islands = self.get_islands(self.broken_case)
+        self.islands = dict()
+        self.get_islands(self.broken_case)
+
+        # Identify any missing elements after islanding - requires comparison of islands to ideal case - similar to evaluate state function!!!
 
 
         # Islands evalutated
-        self.islands_evaluated = list()
-        self.evaluate_islands()
-
-        # Get current state
-        self.current_state = self.evaluate_state(self.islands_evaluated)
-
-        # Identify the disconnected system elements
-        self.disconnected_elements = self.id_disconnected_elements()
+        # self.islands_evaluated = list()
+        # self.evaluate_islands()
+        #
+        # # Get current state
+        # self.current_state = self.evaluate_state(self.islands_evaluated)
+        #
+        # # Identify the disconnected system elements - uses the current state variable and islands
+        # self.disconnected_elements = self.id_disconnected_elements()
 
     def convert_to_mpc(self):
         # Converts the evaluated islands back to a matpower case so it can be ran again
@@ -107,11 +111,15 @@ class PowerSystem(object):
         reactive_inj = self.ideal_case['branch'][:, [0, 1, 14]]
         reactive_inj[:, 2] = np.nan
 
+        bus_voltage_ang = self.ideal_case['bus'][:, [0,8]]
+        bus_voltage_ang[:, 1] = np.nan
+
         state = {'real gen': real_gen,
                  'dispatch load': dispatch_load,
                  'fixed load': fixed_load,
                  'real inj': real_inj,
                  'reactive inj': reactive_inj,
+                 'bus voltage angle': bus_voltage_ang,
                  'losses': 0}
 
         return state
@@ -169,12 +177,23 @@ class PowerSystem(object):
         # Detect if there is load and or gen
         islands = self.is_load_is_gen(islands)
 
+        # Initialize blackout dictionary to empty arrays
+        self.islands['blackout'] = {'bus': np.empty((0, self.ideal_case['bus'].shape[1])),
+                                    'branch': np.empty((0, self.ideal_case['branch'].shape[1])),
+                                    'gen': np.empty((0, self.ideal_case['gen'].shape[1])),
+                                    'gencost': np.empty((0, self.ideal_case['gencost'].shape[1])),
+                                    'connections': list(),
+                                    'is_load': 0,
+                                    'is_gen': 0,
+                                    'losses': 0}
+        count = 0
         for island in make_iterable(islands):
 
             # If there is both generation and loads
             if island['is_gen'] and island['is_load']:
+                print('gen: %s\nload: %s' % (island['is_gen'], island['is_load']))
 
-                # Does island have reference bus?  Set ref as bus with highest unused capacity
+                # Does island have a reference bus?  Set ref as bus with highest unused capacity
                 if not np.any(island['bus'][:, 1] == 3):  # True if reference bus is missing
 
                     # Find bus with largest unused capacity
@@ -188,7 +207,51 @@ class PowerSystem(object):
 
                     island['slack_ind'] = np.where(island['bus'][:, 1] == 3)
 
-        return islands
+                # Add energized island to the islands dictionary
+                self.islands['%s' % count] = island
+
+                count += 1
+
+            else:  # Gen or loads missing: blackout islands
+                print('gen: %s\nload: %s' % (island['is_gen'], island['is_load']))
+
+                # Deconstruct island and place its elements in blackout zone
+                self.islands['blackout']['bus'] = np.append(self.islands['blackout']['bus'],
+                                                            island['bus'], axis=0)
+                self.islands['blackout']['branch'] = np.append(self.islands['blackout']['branch'],
+                                                               island['branch'], axis=0)
+                self.islands['blackout']['gen'] = np.append(self.islands['blackout']['gen'],
+                                                            island['gen'], axis=0)
+                self.islands['blackout']['gencost'] = np.append(self.islands['blackout']['gencost'],
+                                                                island['gencost'], axis=0)
+
+        # Add left over blackout elements! We need to evaluate the state and check for nans
+        state = self.evaluate_state(list(self.islands.values()))
+
+        # Populate blackout buses
+        bus_ind = np.isnan(state['bus voltage angle'][:, 1]).reshape((-1,))
+        bus_id = state['bus voltage angle'][bus_ind, 0]
+        for b_id in bus_id:
+            ind1 = (self.ideal_case['bus'][:, 0] == b_id).reshape((-1,))
+            self.islands['blackout']['bus'] = np.append(self.islands['blackout']['bus'],
+                                                        self.ideal_case['bus'][ind1, :], axis=0)
+        # Populate blackout branches
+        branch_ind = np.isnan(state['real inj'][:, 2]).reshape((-1,))
+        branch_id = state['real inj'][branch_ind, 0:2]
+        for from_to in branch_id:
+            ind1 = np.all(self.ideal_case['branch'][:, 0:2] == from_to, axis=1).reshape((-1,))
+            self.islands['blackout']['branch'] = np.append(self.islands['blackout']['branch'],
+                                                           self.ideal_case['branch'][ind1, :], axis=0)
+
+        # Populate blackout generators
+        gen_ind = np.isnan(state['real gen'][:, 1]).reshape((-1,))
+        gen_id = state['real gen'][gen_ind, 0]
+        for g_id in gen_id:
+            ind1 = (self.ideal_case['gen'][:, 0] == g_id).reshape((-1,))
+            self.islands['blackout']['gen'] = np.append(self.islands['blackout']['gen'],
+                                                        self.ideal_case['gen'][ind1, :], axis=0)
+            self.islands['blackout']['gencost'] = np.append(self.islands['blackout']['gencost'],
+                                                            self.ideal_case['gencost'][ind1, :], axis=0)
 
     def evaluate_state(self, island_list):
 
@@ -231,34 +294,50 @@ class PowerSystem(object):
                     state['real inj'][ind1, 2] = from_to[2]
                     state['reactive inj'][ind1, 2] = from_to[3]
 
+                # Fill bus voltage angle for island i
+                for bus_id in island['bus'][:, 0]:
+                    ind1 = (state['bus voltage angle'][:, 0] == bus_id).reshape((-1,))
+                    ind2 = (island['bus'][:, 0] == bus_id).reshape((-1,))
+                    state['bus voltage angle'][ind1, 1] = island['bus'][ind2, 8]
+
             # If either generation or load is missing
             else:
 
-                print('Gen or load is missing :(')
+                print('Blackout area :(')
 
                 # Fill in generator states for island i
-                gen_ind = make_iterable(octave.isload(island['gen']) == 0).reshape((-1,))
-                for bus_id in island['gen'][gen_ind, 0]:
-                    ind1 = (state['real gen'][:, 0] == bus_id).reshape((-1,))
-                    state['real gen'][ind1, 1] = 0
+                if len(island['gen']) > 0:
+                    gen_ind = make_iterable(octave.isload(island['gen']) == 0).reshape((-1,))
+                    for bus_id in island['gen'][gen_ind, 0]:
+                        ind1 = (state['real gen'][:, 0] == bus_id).reshape((-1,))
+                        state['real gen'][ind1, 1] = 0
 
-                # Fill in dispatchable load states for island i
-                d_load_ind = make_iterable(octave.isload(island['gen']) == 1).reshape((-1,))
-                for bus_id in island['gen'][d_load_ind, 0]:
-                    ind1 = (state['dispatch load'][:, 0] == bus_id).reshape((-1,))
-                    state['dispatch load'][ind1, 1] = 0
+                    # Fill in dispatchable load states for island i
+                    d_load_ind = make_iterable(octave.isload(island['gen']) == 1).reshape((-1,))
+                    for bus_id in island['gen'][d_load_ind, 0]:
+                        ind1 = (state['dispatch load'][:, 0] == bus_id).reshape((-1,))
+                        state['dispatch load'][ind1, 1] = 0
 
                 # Fill fixed load states for island i
-                f_load_ind = make_iterable(np.any(island['bus'][:, 2:4] > 0, axis=1)).reshape((-1,))
-                for bus_id in island['bus'][f_load_ind, 0]:
-                    ind1 = (state['fixed load'][:, 0] == bus_id).reshape((-1,))
-                    state['fixed load'][ind1, 1] = 0
+                if len(island['bus']) > 0:
+                    f_load_ind = make_iterable(np.any(island['bus'][:, 2:4] > 0, axis=1)).reshape((-1,))
+                    for bus_id in island['bus'][f_load_ind, 0]:
+                        ind1 = (state['fixed load'][:, 0] == bus_id).reshape((-1,))
+                        state['fixed load'][ind1, 1] = 0
+
+                    # Fill bus voltage angle for island i
+                    for bus_id in island['bus'][:, 0]:
+                        ind1 = (state['bus voltage angle'][:, 0] == bus_id).reshape((-1,))
+                        state['bus voltage angle'][ind1, 1] = 0
 
                 # Fill real injection to each line for island i
-                for from_to in island['branch'][:, [0, 1, 13, 14]]:
-                    ind1 = np.all(state['real inj'][:, 0:2] == from_to[0:2], axis=1)
-                    state['real inj'][ind1, 2] = 0
-                    state['reactive inj'][ind1, 2] = 0
+                if len(island['branch']) > 0:
+                    for from_to in island['branch'][:, [0, 1, 13, 14]]:
+                        ind1 = np.all(state['real inj'][:, 0:2] == from_to[0:2], axis=1)
+                        state['real inj'][ind1, 2] = 0
+                        state['reactive inj'][ind1, 2] = 0
+
+
 
             # Aggregate losses
             state['losses'] += island['losses']

@@ -31,7 +31,6 @@ line_ratings = np.array([158.2042239,  75.60872119,   73.32406193,   56.15290218
 
 line_ratings = line_ratings + 50
 
-
 # Ones indicate buses w/ dispatchable loads
 dispatchable_loads = np.array([0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1])
 
