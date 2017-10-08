@@ -36,9 +36,9 @@ class PowerSystem(object):
         # # Detect and isolate islands
         self.islands = self.get_islands(self.broken_case)
 
-        # TODO: if there are islands without loads or gen, treat all elements within island as deactivated (add to list)
+
         # Islands evalutated
-        self.islands_evaluated = []
+        self.islands_evaluated = list()
         self.evaluate_islands()
 
         # Get current state
@@ -54,7 +54,6 @@ class PowerSystem(object):
             obj = octave.opf_model(island)
             self.islands[count] = octave.get_mpc(obj)
             count += 1
-
 
     def id_disconnected_elements(self):
 
@@ -117,35 +116,21 @@ class PowerSystem(object):
 
         return state
 
-    def constrain_islands(self):
-
-        # Loop through the islands
-        constrained = list()
-        for i, island in enumerate(self.islands):
-            # Set constraints
-            island_constrained = set_opf_constraints(island, set_gen=True, set_loads=True)
-            island_constrained['opf ran'] = 1
-
-            if not island['is_gen'] or not island['is_load']:
-                print('THERE IS A BLACKOUT HERE')
-                island_constrained['gen'][:, 7] = 0  # status of gen and loads= off
-                island_constrained['opf ran'] = 0
-
-            # Run opf on island
-            constrained.append(island_constrained)
-
-        return constrained
-
     def evaluate_islands(self):
 
+        # Important note: When runopf is executed, the gencost matrix is destroyed. To remedy this, I save the matrix
+        # and overwrite the result with this prior gencost matrix
+
         # Loop through the islands
-        self.islands_evaluated = list()
+        self.islands_evaluated = list()  # Re-initialize (we need to evaluate islands between actions)
         for island in make_iterable(self.islands):
 
             # Only run for islands with both load and generation
             if island['is_gen'] and island['is_load']:
+                gencost = deepcopy(island['gencost'])
                 result = octave.runopf(island, mp_opt)
                 result = self.get_losses(result)
+                result['gencost'] = gencost
                 self.islands_evaluated.append(result)
 
             else:
@@ -356,25 +341,46 @@ class PowerSystem(object):
         plt.xlim([-1, len(line_order)])
 
         plt.tight_layout()
+        plt.show()
+        plt.draw()
 
     def action_line(self, bus_ids):
-        """Does the line connect islands?"""
+        """Line connection case list:
+
+        1. Line within an energized island is enabled
+            * Very common, simplest
+            * Easy to impplement, just switch on
+        2. Line between 2 energized islands is enabled
+            * Bit more complex than within island case
+            * Need to consolidate the islands into one
+            * Need to remove one of the slack buses
+        3. Line between an energized island and "left overs" is enabled
+            * Consult the connection list to see if there are further connections there
+            * Add the "left over" bus(s) to the island
+            * Add the "left over" branch(s) to the island and enable
+            * Add any generation or dispatchable load to the island, but don't enable, this occurs as separate action
+            * If there is new fixed load, disable it, enabling it is a separate action
+        4. Line within "left overs" is enabled
+            * I need to implement a connection list to monitor what has been connected
+            * These buses will be connected and added to the connection list
+
+
+        """
 
         print('Connected lines')
-        print(self.islands[0]['branch'][:, 10])
+        for island in make_iterable(self.islands):
+            print(island['branch'][:, 10])
         print('\n')
 
         print('bus ids')
         print(bus_ids)
         print('\n')
 
-
         # Check islands to find bus 1
         island_1 = None
         for i, island in enumerate(make_iterable(self.islands)):
             if np.any(island['bus'][:, 0] == bus_ids[0]):
                 island_1 = i
-
         print('island 1: %s\n' % island_1)
 
         # Check islands to find bus 2
@@ -382,9 +388,7 @@ class PowerSystem(object):
         for i, island in enumerate(make_iterable(self.islands)):
             if np.any(island['bus'][:, 0] == bus_ids[1]):
                 island_2 = i
-
         print('island 2: %s\n' % island_2)
-
 
         # If islands are same, its simple
         # TODO: Need to identify all corner cases (ex. can you have a line with two None buses?)
@@ -401,7 +405,8 @@ class PowerSystem(object):
 
             # Show reconection of line
             print('Connected lines')
-            print(self.islands[island_1]['branch'][:, 10])
+            for island in make_iterable(self.islands):
+                print(island['branch'][:, 10])
 
         # In these cases, add the line and energize/enable the line to the island
         # Turns out that in these cases, energizing a line with nothing on the None end, convergence failure occurs!!
@@ -480,7 +485,6 @@ class PowerSystem(object):
     def action_gen(self, bus_id):
         pass
 
-
     @staticmethod
     def get_losses(case):
 
@@ -513,3 +517,22 @@ class PowerSystem(object):
             return case_list.reshape((-1))
         else:
             return case_list
+
+    # def constrain_islands(self):
+    #
+    #     # Loop through the islands
+    #     constrained = list()
+    #     for i, island in enumerate(self.islands):
+    #         # Set constraints
+    #         island_constrained = set_opf_constraints(island, set_gen=True, set_loads=True)
+    #         island_constrained['opf ran'] = 1
+    #
+    #         if not island['is_gen'] or not island['is_load']:
+    #             print('THERE IS A BLACKOUT HERE')
+    #             island_constrained['gen'][:, 7] = 0  # status of gen and loads= off
+    #             island_constrained['opf ran'] = 0
+    #
+    #         # Run opf on island
+    #         constrained.append(island_constrained)
+    #
+    #     return constrained

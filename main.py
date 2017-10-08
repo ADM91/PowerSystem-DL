@@ -30,8 +30,34 @@ base_case = octave.loadcase('case14')
 base_case['branch'][:, 5] = line_ratings  # Have to add line ratings
 base_result = octave.runpf(base_case, mp_opt)
 
+# TODO: Add unserved load to the objective function
+# TODO: Transform objective to a monetary equivalent with one output.
+# TODO: Implement the ghost line method to simulate energizing one end of a disonnected line
+# TODO: Implement more error handling, what if something doesnt converge?
+
+
 # TODO: if there is opf convergence failure, set island to blackout
 # TODO: to study effect of changing load shedding cost use matpower function modcost
+# TODO: if there are islands without loads or gen, treat all elements within island as deactivated (add to list)
+
+
+# ---------NOTES------------
+# If an blackout island is connected to functioning island, I have problems.  Opf doesn't converge (at least
+# last time i tried).  Also, generators that were cut off (not a part of any island) do not appear back in the
+# generator matrix, and seems to be lost.  I have to come up with a method to retain the generators and loads
+# lost between islands...  Maybe visualizing what belongs to what island is my next move.
+
+# A dispatchable load that is lost between islands is not recovered when that bus is recovered by the system.
+# these loads are defined as generators, so the same must be true for generators.  I need a way of tracking the
+# "left over" generators and loads. -- Next on the list
+
+# There must be some mistake in the code that detects if line is outside
+# an island.  Last test showed that lines that don't show up in the branch
+# data matrix are a part of the current island.
+
+
+# ---------NOTES------------
+
 
 ps = PowerSystem(base_result, n_deactivated=8)
 ps.visualize_state()
@@ -47,19 +73,29 @@ ps.current_state['losses']
 
 # Reconnect a line
 # ps.action_line(dis_el['lines'][0])
-ps.action_line([4,9])
 
-# TODO: Something is happening during re-evaluation causing the gencost matrix to go back to generic polynomial cost functions
-# Evaluate islands
-ps.evaluate_islands()
+from matplotlib import pyplot as plt
+plt.ion()
+count = 1
+for line in dis_el['lines']:
 
-# Get system state
-ps.current_state = ps.evaluate_state(ps.islands_evaluated)
+    print(dis_el)
+    ps.action_line(line)
 
-ps.current_state['losses']
+    # Evaluate islands
+    ps.evaluate_islands()
 
-# Plot the state
-ps.visualize_state(fig_num=5)
+    # Get system state
+    ps.current_state = ps.evaluate_state(ps.islands_evaluated)
+
+    ps.current_state['losses']
+
+    # Plot the state
+    ps.visualize_state(fig_num=count)
+
+    count += 1
+
+    input("Press Enter to continue...")
 
 # -----------------
 
@@ -97,16 +133,6 @@ islands.shape
 for i, island in enumerate(islands):
     print('island %s: load %s' % (i, island['is_load']))
     print('island %s: gen %s' % (i, island['is_gen']))
-
-# TODO: check for islands and deal with that - DONE
-# TODO: For islanded systems, assume the first reconnection is free
-# TODO: Write method to determine if there is unserved load.  These are more interesting cases.
-# TODO: Add unserved load to the objective function
-# TODO: Make loads curtailable in OPF... Need to do more tinkering with opf
-# TODO: Transform objective to a monetary equivalent with one output.
-# TODO: Implement the ghost line method to simulate energizing one end of a disonnected line
-# TODO: Implement more error handling, what if something doesnt converge?
-# TODO: Make sure lines have MVA ratings - DONE
 
 
 # Make copy of islands to manipulate for opf
