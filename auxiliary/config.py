@@ -7,6 +7,7 @@ octave.addpath('/home/alexander/Documents/MATLAB/matpower6.0')
 
 # Set Matpower options
 mp_opt = octave.mpoption('verbose', 0,
+                         'out.all', 0,
                          'out.sys_sum', 0,
                          'out.gen', 0,
                          'out.lim.all', 0,

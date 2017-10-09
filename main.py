@@ -15,21 +15,24 @@ from system.branch_deactivate import branch_deactivate
 from system.check_extract_islands import check_extract_islands
 
 
-# Test code
-# -----------------
+# -------- To do list---------
 
 # TODO: Add unserved load to the objective function
 # TODO: Transform objective to a monetary equivalent with one output.
 # TODO: Implement the ghost line method to simulate energizing one end of a disonnected line
 # TODO: Implement more error handling, what if something doesnt converge?
 
-
-# TODO: if there is opf convergence failure, set island to blackout
+# TODO: if there is opf convergence failure, set island to blackout... maybe
 # TODO: to study effect of changing load shedding cost use matpower function modcost
-# TODO: if there are islands without loads or gen, treat all elements within island as deactivated (add to list)
+
+# TODO: I am getting errors because some dispatch load is being overlooked (shows up as nan)
+
+# TODO: Set generator status to 0 if it is in blackout area
+
+# TODO: Add status information to the current state
 
 
-# ---------NOTES------------
+# ---------Other notes------------
 # If an blackout island is connected to functioning island, I have problems.  Opf doesn't converge (at least
 # last time i tried).  Also, generators that were cut off (not a part of any island) do not appear back in the
 # generator matrix, and seems to be lost.  I have to come up with a method to retain the generators and loads
@@ -44,7 +47,7 @@ from system.check_extract_islands import check_extract_islands
 # data matrix are a part of the current island.
 
 
-# ---------Test code------------
+# ---------Testing code------------
 
 from pprint import PrettyPrinter
 import numpy as np
@@ -57,20 +60,19 @@ from auxiliary.config import mp_opt, \
 
 
 pp = PrettyPrinter(indent=4)
+np.set_printoptions(precision=2)
 
 base_case = octave.loadcase('case14')
 base_case['branch'][:, 5] = line_ratings  # Have to add line ratings
 base_result = octave.runpf(base_case, mp_opt)
 
-ps = PowerSystem(base_result, n_deactivated=8)
-pp.pprint(ps.islands.keys())
-pp.pprint(ps.islands['blackout'])
-
-# Nans in (real inj = branches), (real gen = gen), (fixed load = bus)
-pp.pprint(ps.evaluate_state(list(ps.islands.values())))
-
-
+ps = PowerSystem(base_result, n_deactivated=8, verbose=1)
+ps.action_list
+ps.action_line(ps.action_list['lines'][0])
 ps.visualize_state()
+
+pp.pprint(ps.current_state)
+
 
 for i, island in enumerate(ps.islands):
     print('island %s: load %s' % (i, island['is_load']))
