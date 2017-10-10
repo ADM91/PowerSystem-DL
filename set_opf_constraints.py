@@ -34,9 +34,9 @@ def set_opf_constraints(test_case, set_branch=(), max_SPA=365, set_gen=True, set
     # Work with copy of test case
     test_case_opf = deepcopy(test_case)
 
-    if set_branch:
+    if len(set_branch) > 0:
         # Constrain deactivated target branch to max SPA
-        test_case_opf['branch'][set_branch][11:13] = [-max_SPA, max_SPA]
+        test_case_opf['branch'][set_branch, 11:13] = [-max_SPA, max_SPA]
 
     if set_loads:  # Look at load2disp for future implementations(converts fixed loads to dispatchable loads)
 
