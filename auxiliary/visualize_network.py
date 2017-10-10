@@ -84,7 +84,7 @@ def visualize_network(case_result):
         G.add_edge(i['nodenumber'], i['bus'], params)
 
     # Visualize graph
-    plt.figure(figsize=(12, 6))
+    plt.figure(2, figsize=(12, 6))
     ax1 = plt.subplot(111)
     # ax2 = plt.subplot(122)
     nx.draw_networkx(G,
