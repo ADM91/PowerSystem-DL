@@ -8,13 +8,16 @@ from oct2py import octave
 def visualize_state(ideal_case, ideal_state, state_list, fig_num=1):
     color_map = {0: 'black',
                  1: 'green'}
+    color_map_2 = {0: 'green',
+                   1: 'red'}
 
     # Initialize figure
-    fig = plt.figure(1, figsize=(12, 12))
+    fig = plt.figure(fig_num, figsize=(12, 12))
     plt.ion()
-    ax1 = plt.subplot2grid((2, 2), (0, 0))
-    ax2 = plt.subplot2grid((2, 2), (0, 1))
-    ax3 = plt.subplot2grid((2, 2), (1, 0), colspan=2)
+    ax1 = plt.subplot2grid((3, 2), (0, 0))
+    ax2 = plt.subplot2grid((3, 2), (0, 1))
+    ax3 = plt.subplot2grid((3, 2), (1, 0), colspan=2)
+    ax4 = plt.subplot2grid((3, 2), (2, 0), colspan=2)
 
     # Generator state plot
     gen_max = ideal_case['gen'][(octave.isload(ideal_case['gen']) == 0).reshape((-1)), 8].reshape((-1,))
@@ -59,11 +62,20 @@ def visualize_state(ideal_case, ideal_state, state_list, fig_num=1):
     ax3.set_xticklabels(ticks)
     ax3.set_title('Line loadings')
     ax3.set_ylabel('Power (MW)')
-    plt.xlim([-1, len(line_order)])
+    # ax3.set_xlim([-1, len(line_order)])
 
-    # plt.tight_layout()
+    # Line SPA plot
+    ax4.set_xticks(line_x)
+    ticks = ['%d - %d' % (i[0], i[1]) for i in real_inj_buses[line_order]]
+    ax4.set_xticklabels(ticks)
+    ax4.set_title('Line SPA differences')
+    ax4.set_ylabel('Degrees')
+    # ax4.set_xlim([-1, len(line_order)])
+    ax4.set_ylim([0, 40])
 
     # Init dynamic plot objects
+    # line_spa_ref = ax4.plot(line_x, np.ones(len(line_x))*10, color='red', markersize=5)
+    line_spa_ref = ax4.axhline(y=10, color='black', linewidth=2)
     gen_ideal = ax1.bar(gen_x - gen_width / 2, gen_ideal[cap_order], gen_width, align='center', alpha=0.9, color='blue')
     gen_cap = ax1.bar(gen_x, gen_max[cap_order], gen_width*2, align='center', alpha=0.3)
     gen_curr = ax1.bar(gen_x+gen_width/2, np.zeros(len(gen_x)), gen_width, align='center', alpha=0.9, color='red')
@@ -74,17 +86,12 @@ def visualize_state(ideal_case, ideal_state, state_list, fig_num=1):
     line_ideal = ax3.bar(line_x - line_width / 2, real_inj_ideal[line_order], line_width, align='center', alpha=0.9, color='blue')
     line_rating = ax3.bar(line_x, mva_rating[line_order], line_width*2, align='center', alpha=0.3)
     line_curr = ax3.bar(line_x+line_width/2, np.zeros(len(line_x)), line_width, align='center', alpha=0.9, color='red')
+    line_spa = ax4.bar(line_x, np.zeros(len(line_x)), line_width*2, align='center', alpha=0.9, color='green')
 
-    ax3.legend(['Line limit', 'Ideal load', 'Current load'], loc='upper left')
-    ax2.legend(['Ideal load', 'Current load'], loc='upper left')
+    # TODO: ADD blackout section and set colors deliberately
     ax1.legend(['Generator limit', 'Ideal state', 'Current state'], loc='upper left')
-
-    # dyn_objects = [gen_cap, gen_curr, d_ideal, d_curr, f_ideal, f_curr, line_rating, line_curr]
-
-    def init():
-        for i, b in enumerate(gen_curr):
-            b.set_height(0)
-        return gen_curr
+    ax2.legend(['Ideal load', 'Current load'], loc='upper left')
+    ax3.legend(['Line limit', 'Ideal load', 'Current load'], loc='upper left')
 
     def update(frame):
         # Manipulate frame
@@ -133,7 +140,23 @@ def visualize_state(ideal_case, ideal_state, state_list, fig_num=1):
         for rect, height in zip(line_curr, real_inj_current_3):
             rect.set_height(height)
 
-        return gen_cap, gen_curr, d_ideal, f_ideal, d_curr, f_curr, line_ideal, line_rating, line_curr
+        # Line SPA diff (Don't hate me for this ridiculous list comprehension)
+        SPA_bus1_1 = [state_list[list_ind]['bus voltage angle'][state_list[list_ind]['bus voltage angle'][:, 0] == i, 1] for i in state_list[list_ind]['real inj'][line_order, 0]]
+        SPA_bus2_1 = [state_list[list_ind]['bus voltage angle'][state_list[list_ind]['bus voltage angle'][:, 0] == i, 1] for i in state_list[list_ind]['real inj'][line_order, 1]]
+        SPA_diff_1 = np.abs(np.array(SPA_bus1_1) - np.array(SPA_bus2_1))
+        SPA_bus1_2 = [state_list[list_ind+1]['bus voltage angle'][state_list[list_ind+1]['bus voltage angle'][:, 0] == i, 1] for i in state_list[list_ind+1]['real inj'][line_order, 0]]
+        SPA_bus2_2 = [state_list[list_ind+1]['bus voltage angle'][state_list[list_ind+1]['bus voltage angle'][:, 0] == i, 1] for i in state_list[list_ind+1]['real inj'][line_order, 1]]
+        SPA_diff_2 = np.abs(np.array(SPA_bus1_2) - np.array(SPA_bus2_2))
+        SPA_diff_3 = SPA_diff_1 + (SPA_diff_2-SPA_diff_1)*(between_frame/20)
+        for rect, height in zip(line_spa, SPA_diff_3):
+            rect.set_height(height)
+
+        # Detect if line state changes, if so, make it red
+        line_state_change = (state_list[list_ind+1]['real inj'][line_order, -1] - state_list[list_ind]['real inj'][line_order, -1])
+        for rect, color in zip(line_spa, [color_map_2[i] for i in line_state_change]):
+            rect.set_color(color)
+
+        return gen_cap, gen_curr, d_ideal, f_ideal, d_curr, f_curr, line_ideal, line_rating, line_curr, line_spa
 
     for i in range(len(state_list)):
         print(state_list[i]['real gen'][cap_order, 1])

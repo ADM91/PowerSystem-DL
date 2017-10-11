@@ -71,9 +71,14 @@ base_case = octave.loadcase('case14')
 base_case['branch'][:, 5] = line_ratings  # Have to add line ratings
 base_result = octave.runpf(base_case, mp_opt)
 
-ps = PowerSystem(base_result, n_deactivated=6, verbose=0)
+ps = PowerSystem(base_result, n_deactivated=8, verbose=0)
 ps.action_list
+# Why are these not the same???
+ps.islands['0']['branch'][:,13]
+ps.islands_evaluated['0']['branch'][:,13]
+
 out = ps.action_line(ps.action_list['lines'][0])
+out
 
 anim = visualize_state(ps.ideal_case, ps.ideal_state, out)
 

@@ -4,6 +4,7 @@ from oct2py import octave
 
 # Add Matpower to octave path
 octave.addpath('/home/alexander/Documents/MATLAB/matpower6.0')
+octave.addpath('/home/alexander/Documents/MATLAB/matpower6.0/@opf_model')
 
 # Set Matpower options
 mp_opt = octave.mpoption('verbose', 0,
