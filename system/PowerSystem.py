@@ -57,12 +57,12 @@ class PowerSystem(object):
         self.islands = dict()
         self.get_islands(self.broken_case)
 
-        # Islands evalutated
-        self.islands_evaluated = list()
+        # Islands evaluated
+        self.islands_evaluated = dict()
         self.evaluate_islands()
 
         # Get current state
-        self.current_state = self.evaluate_state(self.islands_evaluated)
+        self.current_state = self.evaluate_state(list(self.islands_evaluated.values()))
 
         # Identify the disconnected system elements - uses the current state variable and islands
         self.action_list = dict()
@@ -70,14 +70,6 @@ class PowerSystem(object):
 
         # Initialize blackout connection list (list within a list)
         self.blackout_connections = list([[]])
-
-    def convert_to_mpc(self):
-        # Converts the evaluated islands back to a matpower case so it can be ran again
-        count = 0
-        for island in make_iterable(self.islands_evaluated):
-            obj = octave.opf_model(island)
-            self.islands[count] = octave.get_mpc(obj)
-            count += 1
 
     def generate_action_list(self):
 
@@ -157,22 +149,37 @@ class PowerSystem(object):
         # and overwrite the result with this prior gencost matrix
 
         # Loop through the islands
-        self.islands_evaluated = list()  # Re-initialize (we need to evaluate islands between actions)
-        for island in list(self.islands.values()):
+        self.islands_evaluated = dict()  # Re-initialize (we need to evaluate islands between actions)
+        for key, island in list(self.islands.items()):
 
             # Only run for islands with both load and generation
             if island['is_gen'] and island['is_load']:
-                # print('island id: %s' % island['id'])
-                # print(island['bus'][:, 0:2])
+                # Evaluate the energized island with opf constraints
                 gencost = deepcopy(island['gencost'])
                 result = octave.runopf(island, mp_opt)
                 result = self.get_losses(result)
                 result['gencost'] = gencost
-                self.islands_evaluated.append(result)
+                self.islands_evaluated[key] = result
 
-            else:
+                # Set islands data to current evaluated island data! -- Be aware this might fuck shit up
+                # Octave object/dynamic does not work, so we have to reconstruct the mpc from scratch (not that hard)
+                mpc = dict()
+                mpc['bus'] = result['bus']
+                mpc['branch'] = result['branch']
+                mpc['gen'] = result['gen']
+                mpc['gencost'] = result['gencost']
+                mpc['losses'] = result['losses']
+                mpc['slack_ind'] = island['slack_ind']
+                mpc['baseMVA'] = island['baseMVA']
+                mpc['is_gen'] = island['is_gen']
+                mpc['is_load'] = island['is_load']
+                mpc['bus_name'] = island['bus_name']
+                mpc['id'] = island['id']
+                self.islands[key] = mpc
+
+            else:  # Blackout area gets returned as is
                 island['losses'] = 0
-                self.islands_evaluated.append(island)
+                self.islands_evaluated[key] = island
 
     def evaluate_state(self, island_list):
 
@@ -439,120 +446,120 @@ class PowerSystem(object):
                 print(island['branch'][:, [0, 1, 10]])
                 print('\n')
 
-    def visualize_state(self, state_list, fig_num=1):
-
-        color_map = {0: 'black',
-                     1: 'green'}
-
-        # Initialize figure
-        fig = plt.figure(fig_num, figsize=(12, 12))
-        ax1 = plt.subplot2grid((2, 2), (0, 0))
-        ax2 = plt.subplot2grid((2, 2), (0, 1))
-        ax3 = plt.subplot2grid((2, 2), (1, 0), colspan=2)
-
-        # Generator state plot
-        gen_max = self.ideal_case['gen'][(octave.isload(self.ideal_case['gen']) == 0).reshape((-1)), 8].reshape((-1,))
-        gen_ideal = self.ideal_state['real gen'][:, 1].reshape((-1,))
-        gen_bus = self.ideal_state['real gen'][:, 0].reshape((-1,))
-        cap_order = np.argsort(gen_max, axis=0, kind='quicksort')
-        gen_width = 0.25
-        gen_x = np.arange(len(gen_max))
-        ax1.bar(gen_x - gen_width / 2, gen_ideal[cap_order], gen_width, align='center', alpha=0.9, color='blue')
-        ax1.set_xticks(gen_x)
-        ax1.set_xticklabels(['bus %d' % i for i in gen_bus[cap_order]])
-        plt.title('Generator schedule')
-        ax1.legend(['Generator limit', 'Ideal state', 'Current state'], loc='upper left')
-        ax1.set_ylabel('Power (MW)')
-
-        # Load state plot
-        d_load_ideal = -self.ideal_state['dispatch load'][:, 1].reshape((-1,))
-        d_load_bus = self.ideal_state['dispatch load'][:, 0].reshape((-1,))
-        d_load_order = np.argsort(d_load_ideal, axis=0, kind='quicksort')
-
-        f_load_ideal = self.ideal_state['fixed load'][:, 1].reshape((-1,))
-        f_load_bus = self.ideal_state['fixed load'][:, 0].reshape((-1,))
-        f_load_order = np.argsort(f_load_ideal, axis=0, kind='quicksort')
-
-        load_width = 0.5
-        load_x1 = np.arange(len(d_load_ideal))
-        load_x2 = np.arange(len(load_x1) + 1, len(load_x1) + 1 + len(f_load_ideal))
-        ticks = np.concatenate((['b %d' % i for i in d_load_bus[d_load_order]], ['b %d' % i for i in f_load_bus[f_load_order]]))
-        ax2.set_xticklabels(ticks)
-        ax2.set_xticks(np.concatenate((load_x1, load_x2)))
-        plt.title('Load Profile')
-        ax2.legend(['Ideal load', 'Current load'], loc='upper left')
-        ax2.set_ylabel('Power (MW)')
-
-        # Line state plot
-        mva_rating = self.ideal_case['branch'][:, 5].reshape((-1,))
-        real_inj_ideal = np.abs(self.ideal_state['real inj'][:, 2].reshape((-1,)))
-        real_inj_buses = np.abs(self.ideal_state['real inj'][:, 0:2].reshape((-1, 2)))
-        line_order = np.argsort(mva_rating, axis=0, kind='quicksort')
-        line_width = 0.25
-        line_x = np.arange(len(mva_rating))
-        ax3.bar(line_x - line_width / 2, real_inj_ideal[line_order], line_width, align='center', alpha=0.9,color='blue')
-        ax3.set_xticks(line_x)
-        ticks = ['%d - %d' % (i[0], i[1]) for i in real_inj_buses[line_order]]
-        ax3.set_xticklabels(ticks)
-        plt.title('Line loadings')
-        ax3.legend(['Line limit', 'Ideal load', 'Current load'], loc='upper left')
-        ax3.set_ylabel('Power (MW)')
-        plt.xlim([-1, len(line_order)])
-
-        plt.tight_layout()
-
-        # Init dynamic plot objects
-        gen_cap, = ax1.bar([], [])
-        gen_curr, = ax1.bar([], [])
-        d_ideal, = ax2.bar([], [])
-        d_curr, = ax2.bar([], [])
-        f_ideal, = ax2.bar([], [])
-        f_curr, = ax2.bar([], [])
-        line_rating, = ax3.bar([], [])
-        line_curr, = ax3.bar([], [])
-
-        dyn_objects = [gen_cap, gen_curr, d_ideal, d_curr, f_ideal, f_curr, line_rating, line_curr]
-
-        def update(frame):
-
-            # Clear the last set of data
-            for obj in dyn_objects:
-                obj.clear()
-
-            # Generator state plot dynamic data
-            gen_current = state_list[frame]['real gen'][:, 1].reshape((-1,))
-            gen_island = state_list[frame]['real gen'][cap_order, -1]
-            dyn_objects[0], = ax1.bar(gen_x, gen_max[cap_order], gen_width*2, align='center', alpha=0.3, color=[color_map[ind] for ind in gen_island])
-            dyn_objects[1], = ax1.bar(gen_x+gen_width/2, gen_current[cap_order], gen_width, align='center', alpha=0.9, color='red')
-
-            # Load state plot dynamic data
-            d_load_current = -state_list[frame]['dispatch load'][:, 1].reshape((-1,))
-            d_load_island = state_list[frame]['dispatch load'][d_load_order, -1]
-            f_load_current = state_list[frame]['fixed load'][:, 1].reshape((-1,))
-            f_load_island = state_list[frame]['fixed load'][f_load_order, -1]
-            dyn_objects[2], = ax2.bar(load_x1, d_load_ideal[d_load_order], load_width, align='center', alpha=0.2, color=[color_map[ind] for ind in d_load_island])
-            dyn_objects[3], = ax2.bar(load_x1, d_load_current[d_load_order], load_width, align='center', alpha=0.9, color=[color_map[ind] for ind in d_load_island])
-            dyn_objects[4], = ax2.bar(load_x2, f_load_ideal[f_load_order], load_width, align='center', alpha=0.2, color=[color_map[ind] for ind in f_load_island])
-            dyn_objects[5], = ax2.bar(load_x2, f_load_current[f_load_order], load_width, align='center', alpha=0.9, color=[color_map[ind] for ind in f_load_island])
-
-            # Line state plot dynamic data
-            real_inj_current = np.abs(state_list[frame]['real inj'][:, 2].reshape((-1,)))
-            line_island = state_list[frame]['real inj'][line_order, -1]
-            dyn_objects[6], = ax3.bar(line_x, mva_rating[line_order], line_width*2, align='center', alpha=0.3, color=[color_map[ind] for ind in line_island])
-            dyn_objects[7], = ax3.bar(line_x+line_width/2, real_inj_current[line_order], line_width, align='center', alpha=0.9, color='red')
-
-            if state_list[frame]['Title']:
-                plt.suptitle(state_list[frame]['Title'], labelsize=18)
-            else:
-                plt.suptitle('')
-
-            time.sleep(0.5)
-
-            return dyn_objects
-
-        ani = animation.FuncAnimation(fig, update, frames=len(state_list))
-
-        plt.show()
+    # def visualize_state(self, state_list, fig_num=1):
+    #
+    #     color_map = {0: 'black',
+    #                  1: 'green'}
+    #
+    #     # Initialize figure
+    #     fig = plt.figure(fig_num, figsize=(12, 12))
+    #     ax1 = plt.subplot2grid((2, 2), (0, 0))
+    #     ax2 = plt.subplot2grid((2, 2), (0, 1))
+    #     ax3 = plt.subplot2grid((2, 2), (1, 0), colspan=2)
+    #
+    #     # Generator state plot
+    #     gen_max = self.ideal_case['gen'][(octave.isload(self.ideal_case['gen']) == 0).reshape((-1)), 8].reshape((-1,))
+    #     gen_ideal = self.ideal_state['real gen'][:, 1].reshape((-1,))
+    #     gen_bus = self.ideal_state['real gen'][:, 0].reshape((-1,))
+    #     cap_order = np.argsort(gen_max, axis=0, kind='quicksort')
+    #     gen_width = 0.25
+    #     gen_x = np.arange(len(gen_max))
+    #     ax1.bar(gen_x - gen_width / 2, gen_ideal[cap_order], gen_width, align='center', alpha=0.9, color='blue')
+    #     ax1.set_xticks(gen_x)
+    #     ax1.set_xticklabels(['bus %d' % i for i in gen_bus[cap_order]])
+    #     plt.title('Generator schedule')
+    #     ax1.legend(['Generator limit', 'Ideal state', 'Current state'], loc='upper left')
+    #     ax1.set_ylabel('Power (MW)')
+    #
+    #     # Load state plot
+    #     d_load_ideal = -self.ideal_state['dispatch load'][:, 1].reshape((-1,))
+    #     d_load_bus = self.ideal_state['dispatch load'][:, 0].reshape((-1,))
+    #     d_load_order = np.argsort(d_load_ideal, axis=0, kind='quicksort')
+    #
+    #     f_load_ideal = self.ideal_state['fixed load'][:, 1].reshape((-1,))
+    #     f_load_bus = self.ideal_state['fixed load'][:, 0].reshape((-1,))
+    #     f_load_order = np.argsort(f_load_ideal, axis=0, kind='quicksort')
+    #
+    #     load_width = 0.5
+    #     load_x1 = np.arange(len(d_load_ideal))
+    #     load_x2 = np.arange(len(load_x1) + 1, len(load_x1) + 1 + len(f_load_ideal))
+    #     ticks = np.concatenate((['b %d' % i for i in d_load_bus[d_load_order]], ['b %d' % i for i in f_load_bus[f_load_order]]))
+    #     ax2.set_xticklabels(ticks)
+    #     ax2.set_xticks(np.concatenate((load_x1, load_x2)))
+    #     plt.title('Load Profile')
+    #     ax2.legend(['Ideal load', 'Current load'], loc='upper left')
+    #     ax2.set_ylabel('Power (MW)')
+    #
+    #     # Line state plot
+    #     mva_rating = self.ideal_case['branch'][:, 5].reshape((-1,))
+    #     real_inj_ideal = np.abs(self.ideal_state['real inj'][:, 2].reshape((-1,)))
+    #     real_inj_buses = np.abs(self.ideal_state['real inj'][:, 0:2].reshape((-1, 2)))
+    #     line_order = np.argsort(mva_rating, axis=0, kind='quicksort')
+    #     line_width = 0.25
+    #     line_x = np.arange(len(mva_rating))
+    #     ax3.bar(line_x - line_width / 2, real_inj_ideal[line_order], line_width, align='center', alpha=0.9,color='blue')
+    #     ax3.set_xticks(line_x)
+    #     ticks = ['%d - %d' % (i[0], i[1]) for i in real_inj_buses[line_order]]
+    #     ax3.set_xticklabels(ticks)
+    #     plt.title('Line loadings')
+    #     ax3.legend(['Line limit', 'Ideal load', 'Current load'], loc='upper left')
+    #     ax3.set_ylabel('Power (MW)')
+    #     plt.xlim([-1, len(line_order)])
+    #
+    #     plt.tight_layout()
+    #
+    #     # Init dynamic plot objects
+    #     gen_cap, = ax1.bar([], [])
+    #     gen_curr, = ax1.bar([], [])
+    #     d_ideal, = ax2.bar([], [])
+    #     d_curr, = ax2.bar([], [])
+    #     f_ideal, = ax2.bar([], [])
+    #     f_curr, = ax2.bar([], [])
+    #     line_rating, = ax3.bar([], [])
+    #     line_curr, = ax3.bar([], [])
+    #
+    #     dyn_objects = [gen_cap, gen_curr, d_ideal, d_curr, f_ideal, f_curr, line_rating, line_curr]
+    #
+    #     def update(frame):
+    #
+    #         # Clear the last set of data
+    #         for obj in dyn_objects:
+    #             obj.clear()
+    #
+    #         # Generator state plot dynamic data
+    #         gen_current = state_list[frame]['real gen'][:, 1].reshape((-1,))
+    #         gen_island = state_list[frame]['real gen'][cap_order, -1]
+    #         dyn_objects[0], = ax1.bar(gen_x, gen_max[cap_order], gen_width*2, align='center', alpha=0.3, color=[color_map[ind] for ind in gen_island])
+    #         dyn_objects[1], = ax1.bar(gen_x+gen_width/2, gen_current[cap_order], gen_width, align='center', alpha=0.9, color='red')
+    #
+    #         # Load state plot dynamic data
+    #         d_load_current = -state_list[frame]['dispatch load'][:, 1].reshape((-1,))
+    #         d_load_island = state_list[frame]['dispatch load'][d_load_order, -1]
+    #         f_load_current = state_list[frame]['fixed load'][:, 1].reshape((-1,))
+    #         f_load_island = state_list[frame]['fixed load'][f_load_order, -1]
+    #         dyn_objects[2], = ax2.bar(load_x1, d_load_ideal[d_load_order], load_width, align='center', alpha=0.2, color=[color_map[ind] for ind in d_load_island])
+    #         dyn_objects[3], = ax2.bar(load_x1, d_load_current[d_load_order], load_width, align='center', alpha=0.9, color=[color_map[ind] for ind in d_load_island])
+    #         dyn_objects[4], = ax2.bar(load_x2, f_load_ideal[f_load_order], load_width, align='center', alpha=0.2, color=[color_map[ind] for ind in f_load_island])
+    #         dyn_objects[5], = ax2.bar(load_x2, f_load_current[f_load_order], load_width, align='center', alpha=0.9, color=[color_map[ind] for ind in f_load_island])
+    #
+    #         # Line state plot dynamic data
+    #         real_inj_current = np.abs(state_list[frame]['real inj'][:, 2].reshape((-1,)))
+    #         line_island = state_list[frame]['real inj'][line_order, -1]
+    #         dyn_objects[6], = ax3.bar(line_x, mva_rating[line_order], line_width*2, align='center', alpha=0.3, color=[color_map[ind] for ind in line_island])
+    #         dyn_objects[7], = ax3.bar(line_x+line_width/2, real_inj_current[line_order], line_width, align='center', alpha=0.9, color='red')
+    #
+    #         if state_list[frame]['Title']:
+    #             plt.suptitle(state_list[frame]['Title'], labelsize=18)
+    #         else:
+    #             plt.suptitle('')
+    #
+    #         time.sleep(0.5)
+    #
+    #         return dyn_objects
+    #
+    #     ani = animation.FuncAnimation(fig, update, frames=len(state_list))
+    #
+    #     plt.show()
 
         # for state in state_list:
         #
@@ -646,24 +653,24 @@ class PowerSystem(object):
                 print('Case: within energized island')
 
             # Take preliminary snapshot of the system
-            prelim_state = self.evaluate_state(self.islands_evaluated)
+            prelim_state = self.evaluate_state(list(self.islands_evaluated.values()))
             prelim_state['Title'] = 'Preliminary state'  # Shows up on plot
             state_list.append(prelim_state)
 
             # Set opf constraint to SPA diff
             branch_ind = np.all(self.islands[island_map[island_1]]['branch'][:, 0:2] == bus_ids, axis=1)
-            print(branch_ind)
             self.islands[island_map[island_1]] = set_opf_constraints(test_case=self.islands[island_map[island_1]],
                                                                      set_branch=branch_ind,
-                                                                     max_SPA=20,
+                                                                     max_SPA=10,
                                                                      set_gen=False,
                                                                      set_loads=False)
             # Run opf on the islands
-            self.evaluate_islands()
-            print(island_1)
-            print(branch_ind)
-            self.islands_evaluated[island_1]['branch'][branch_ind, 10] = 1  # For animation
-            reschedule_state = self.evaluate_state(self.islands_evaluated)
+            self.evaluate_islands()  # Matpower needs to be altered for this to work -- Think I got it
+
+            # TODO: Make sure islands_evaluated have same order as islands
+            # Achieved by making islands_evaluated a dictionary
+            self.islands_evaluated[island_map[island_1]]['branch'][branch_ind, 10] = 1  # For animation
+            reschedule_state = self.evaluate_state(list(self.islands_evaluated.values()))
             reschedule_state['Title'] = 'Rescheduling for connection of branch %s - %s' % (bus_ids[0], bus_ids[1])
             state_list.append(reschedule_state)
 
@@ -674,9 +681,9 @@ class PowerSystem(object):
                                                                      max_SPA=360,
                                                                      set_gen=False,
                                                                      set_loads=False)
-            # Run opf for final steady state
+            # Run opf to get final steady state
             self.evaluate_islands()
-            after_connection_state = self.evaluate_state(self.islands_evaluated)
+            after_connection_state = self.evaluate_state(list(self.islands_evaluated.values()))
             after_connection_state['Title'] = 'State after line connection'
             state_list.append(after_connection_state)
 
