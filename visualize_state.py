@@ -155,13 +155,17 @@ def visualize_state(ideal_case, ideal_state, state_list, fig_num=1):
         line_state_change = (state_list[list_ind+1]['real inj'][line_order, -1] - state_list[list_ind]['real inj'][line_order, -1])
         for rect, color in zip(line_spa, [color_map_2[i] for i in line_state_change]):
             rect.set_color(color)
+        list_ind
+        if state_list[list_ind+1]['Title']:
+            plt.suptitle(state_list[list_ind+1]['Title'], fontsize=18)
+        else:
+            plt.suptitle('')
 
         return gen_cap, gen_curr, d_ideal, f_ideal, d_curr, f_curr, line_ideal, line_rating, line_curr, line_spa
 
-    for i in range(len(state_list)):
-        print(state_list[i]['real gen'][cap_order, 1])
 
-    print(len(state_list))
+
+
 
     anim = animation.FuncAnimation(fig, update, frames=(len(state_list)-1)*20-1, interval=20)
     plt.show()
