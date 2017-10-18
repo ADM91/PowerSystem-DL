@@ -36,5 +36,10 @@ line_ratings = line_ratings + 50
 # Ones indicate buses w/ dispatchable loads
 dispatchable_loads = np.array([0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1])
 
-# Modes: 'debug'
-mode = 'debug'
+# Deconstructed cases
+# ---------------Deconstruction 1-----------------
+deconstruct_1 = np.array([True, False, False, True,
+                          False, False, True, True,
+                          False, False, False, False,
+                          False, False, False, True,
+                          False, False, True, False])
