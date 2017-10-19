@@ -38,8 +38,25 @@ dispatchable_loads = np.array([0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1])
 
 # Deconstructed cases
 # ---------------Deconstruction 1-----------------
+# Only internal reconnection
 deconstruct_1 = np.array([True, False, False, True,
                           False, False, True, True,
                           False, False, False, False,
                           False, False, False, True,
                           False, False, True, False])
+
+# ---------------Deconstruction 2-----------------
+# Connects two non-energized buses
+deconstruct_2 = np.array([True, False, False, True,
+                          False, False, True, True,
+                          False, True, False, True,
+                          False, False, False, True,
+                          False, True, True, False])
+
+# ---------------Deconstruction 3-----------------
+# Want large blackout area, so that I can connect many blackout buses at once
+deconstruct_3 = np.array([False, True, True, True,
+                          True, False, False, True,
+                          False, True, True, True,
+                          False, True, False, False,
+                          False, True, False, False])

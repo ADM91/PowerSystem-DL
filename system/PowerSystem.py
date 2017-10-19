@@ -682,12 +682,12 @@ class PowerSystem(object):
                     print(bus_ind)
                     print(line_ind)
 
-                    # Im taking the data from the ideal case, therefore, they are already activated when attached.
+                    # Im taking the data from the ideal case, therefore, they are already activated when attache d.
                     self.islands[island_map[energ_island]]['bus'] = np.append(self.islands[island_map[energ_island]]['bus'],
-                                                                              np.concatenate((self.ideal_case['bus'][bus_ind, :], np.zeros((len(bus_conn), 4))), axis=1),
+                                                                              np.concatenate((self.ideal_case['bus'][bus_ind, :], np.ones((len(bus_conn), 4))), axis=1),
                                                                               axis=0)
                     self.islands[island_map[energ_island]]['branch'] = np.append(self.islands[island_map[energ_island]]['branch'],
-                                                                                 np.concatenate((self.ideal_case['branch'][line_ind,:], np.zeros((len(line_conn), 4))), axis=1),
+                                                                                 np.concatenate((self.ideal_case['branch'][line_ind,:], np.ones((len(line_conn), 4))), axis=1),
                                                                                  axis=0)
 
                     # Remove lines from blackout list
@@ -697,26 +697,37 @@ class PowerSystem(object):
                     # Exit the for loop
                     break
 
-
             # Add the line in question as well
             line_ind = np.all(self.ideal_case['branch'][:, 0:2] == bus_ids, axis=1)
-
-            print('Black bus: %s' % black_bus)
-            print('Bus ids: %s, %s' % (bus_ids[0], bus_ids[1]))
             print(line_ind)
 
             # Connect the extra line
             self.islands[island_map[energ_island]]['branch'] = np.append(self.islands[island_map[energ_island]]['branch'],
-                                                                         np.append(self.ideal_case['branch'][line_ind, :], [0, 0, 0, 0]).reshape((1, -1)),
+                                                                         np.append(self.ideal_case['branch'][line_ind, :], [1, 1, 1, 1]).reshape((1, -1)),
                                                                          axis=0)
+
+            # Connect the bus if not already there
+            bus_ind = self.ideal_case['bus'][:, 0] == black_bus
+            print(bus_ind)
+            if np.any(bus_ind):
+                print('Im in here')
+                self.islands[island_map[energ_island]]['bus'] = np.append(self.islands[island_map[energ_island]]['bus'],
+                                                                          np.append(self.ideal_case['bus'][bus_ind, :], [1, 1, 1, 1]).reshape((1, -1)),
+                                                                          axis=0)
 
             # Sort the bus matrix in ascending order
             bus_order = np.argsort(self.islands[island_map[energ_island]]['bus'][:, 0], axis=0, kind='quicksort')
-            print(self.islands[island_map[energ_island]]['bus'][:, 0])
-            print(bus_order)
+            # print(self.islands[island_map[energ_island]]['bus'][:, 0])
+            # print(bus_order)
             print(self.islands[island_map[energ_island]]['bus'][bus_order, 0])
             self.islands[island_map[energ_island]]['bus'] = self.islands[island_map[energ_island]]['bus'][bus_order, :]
 
+            # Sort the branch matrix in ascending order
+            b1 = self.islands[island_map[energ_island]]['branch'][:, 0]
+            b2 = self.islands[island_map[energ_island]]['branch'][:, 1]
+            line_order = np.lexsort((b2, b1))  # First sort by bus1 then by bus2
+            print(self.islands[island_map[energ_island]]['branch'][line_order, 0:2])
+            self.islands[island_map[energ_island]]['branch'] = self.islands[island_map[energ_island]]['branch'][line_order, :]
 
             # Run opf to get final steady state
             self.evaluate_islands()
