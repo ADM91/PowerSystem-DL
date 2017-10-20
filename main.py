@@ -1,20 +1,3 @@
-from itertools import permutations
-
-import numpy as np
-from matplotlib import pyplot as plt
-from oct2py import octave
-
-from auxiliary.SPA_difference import SPA_difference
-from auxiliary.config import mp_opt, \
-    case14_ramp_rates, \
-    line_ratings
-from auxiliary.visualize_network import visualize_network
-from cost.objective_function import objective_function
-from set_opf_constraints import set_opf_constraints
-from system.branch_deactivate import branch_deactivate
-from system.check_extract_islands import check_extract_islands
-
-
 # -------- To do list---------
 
 # TODO: Add unserved load to the objective function
@@ -77,20 +60,13 @@ from system.check_extract_islands import check_extract_islands
 # ---------Testing code------------
 
 from pprint import PrettyPrinter
-from matplotlib import pyplot as plt
-from matplotlib import animation
 import numpy as np
 from oct2py import octave
-import numpy as np
-from system.PowerSystem import PowerSystem
-from oct2py import octave
-from visualize_state import visualize_state
 from auxiliary.config import mp_opt, \
-    case14_ramp_rates, \
-    line_ratings,\
-    dispatchable_loads,\
-    deconstruct_1, deconstruct_2, deconstruct_3
-
+    line_ratings, \
+    deconstruct_1, deconstruct_2, deconstruct_3, deconstruct_4
+from auxiliary.visualize_state import visualize_state
+from system.PowerSystem import PowerSystem
 
 pp = PrettyPrinter(indent=4)
 np.set_printoptions(precision=2)
@@ -99,7 +75,7 @@ base_case = octave.loadcase('case14')
 base_case['branch'][:, 5] = line_ratings  # Have to add line ratings
 base_result = octave.runpf(base_case, mp_opt)
 
-ps = PowerSystem(base_result, deactivated=deconstruct_3, verbose=1, verbose_state=0)
+ps = PowerSystem(base_result, deactivated=deconstruct_4, verbose=1, verbose_state=0)
 ps.action_list
 # Why are these not the same???
 ps.islands['0']['branch'][:,13]
@@ -117,7 +93,6 @@ while len(ps.action_list['lines']) > 0:
 pp.pprint(ps.blackout_connections)
 anim = visualize_state(ps.ideal_case, ps.ideal_state, states)
 
-ps.visualize_state(states)
 
 pp.pprint(ps.current_state)
 

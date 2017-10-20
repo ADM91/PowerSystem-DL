@@ -54,9 +54,17 @@ deconstruct_2 = np.array([True, False, False, True,
                           False, True, True, False])
 
 # ---------------Deconstruction 3-----------------
-# Want large blackout area, so that I can connect many blackout buses at once
-deconstruct_3 = np.array([False, True, True, True,
+# Connects a blackout bus with two lines to the energized system
+deconstruct_3 = np.array([False, False, True, True,
                           True, False, False, True,
                           False, True, True, True,
                           False, True, False, False,
                           False, True, False, False])
+
+# ---------------Deconstruction 4-----------------
+# Needs to connect a blackout network
+deconstruct_4 = np.array([False, False, True, True,
+                          True, False, False, True,
+                          False, True, True, True,
+                          False, True, True, True,
+                          False, True, True, False])

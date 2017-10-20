@@ -1,13 +1,15 @@
 from copy import deepcopy
-import time
 from pprint import PrettyPrinter
-from matplotlib import pyplot as plt
-import matplotlib.animation as animation
 import numpy as np
 import oct2py
 from oct2py import octave
-from set_opf_constraints import set_opf_constraints
 from auxiliary.config import mp_opt
+from auxiliary.set_opf_constraints import set_opf_constraints
+from system.line_connection_cases.within_energized import within_energized
+from system.line_connection_cases.within_blackout import within_blackout
+from system.line_connection_cases.between_blackout_energized import between_blackout_energized
+from system.line_connection_cases.between_islands import between_islands
+
 
 
 def make_iterable(obj):
@@ -28,6 +30,12 @@ class PowerSystem(object):
         self.deactivated = deactivated
         self.verbose = verbose
         self.verbose_state = verbose_state
+
+        self.island_map = {-1: 'blackout',
+                           0: '0',
+                           1: '1',
+                           2: '2',
+                           3: '3'}
 
         # Set the opf constraints on the ideal case, before deconstruction
         self.ideal_case = set_opf_constraints(ideal_case)
@@ -161,6 +169,10 @@ class PowerSystem(object):
             if island['is_gen'] and island['is_load']:
                 # Evaluate the energized island with opf constraints
                 gencost = deepcopy(island['gencost'])
+                print(island['gen'][:, [0,1,2,7]])
+                print(island['gencost'])
+                print(island['branch'][:, [0,1,10]])
+                print(island['bus'][:,[0,1]])
                 result = octave.runopf(island, mp_opt)
                 result = self.get_losses(result)
                 result['gencost'] = gencost
@@ -489,13 +501,7 @@ class PowerSystem(object):
             * These buses will be connected and added to the connection list
         """
 
-        island_map = {-1: 'blackout',
-                      0: '0',
-                      1: '1',
-                      2: '2',
-                      3: '3'}
-
-        # Verify action is available!
+        # Verify that action is available!
         ind = np.all(self.action_list['lines'] == bus_ids, axis=1)
         if np.sum(ind) != 1:
             print('Buses not on action list!')
@@ -519,221 +525,26 @@ class PowerSystem(object):
 
         if island_1 == island_2 and island_1 != -1:
             # Need to generate a list of states here, there are several steps performed
-
             if self.verbose:
                 print('Case: within energized island')
-
-            # Take preliminary snapshot of the system
-            prelim_state = self.evaluate_state(list(self.islands_evaluated.values()))
-            prelim_state['Title'] = 'Preliminary state'  # Shows up on plot
-            state_list.append(prelim_state)
-
-            # Set opf constraint to SPA diff
-            # TODO: I have to make sure that the current state is updated with respect to island ids
-            branch_ind = np.all(self.islands[island_map[island_1]]['branch'][:, 0:2] == bus_ids, axis=1)
-            self.islands[island_map[island_1]] = set_opf_constraints(test_case=self.islands[island_map[island_1]],
-                                                                     set_branch=branch_ind,
-                                                                     max_SPA=10,
-                                                                     set_gen=False,
-                                                                     set_loads=False)
-            # Run opf on the islands
-            self.evaluate_islands()  # Matpower needs to be altered for this to work -- Think I got it
-
-            # Achieved by making islands_evaluated a dictionary
-            self.islands_evaluated[island_map[island_1]]['branch'][branch_ind, 10] = 1  # For animation
-            reschedule_state = self.evaluate_state(list(self.islands_evaluated.values()))
-            reschedule_state['Title'] = 'Rescheduling for connection of branch %s - %s' % (int(bus_ids[0]), int(bus_ids[1]))
-            state_list.append(reschedule_state)
-
-            # Close the line and restore the SPA diff constraint
-            self.islands[island_map[island_1]]['branch'][branch_ind, 10] = 1
-            self.islands[island_map[island_1]] = set_opf_constraints(test_case=self.islands[island_map[island_1]],
-                                                                     set_branch=branch_ind,
-                                                                     max_SPA=360,
-                                                                     set_gen=False,
-                                                                     set_loads=False)
-
-            # Add another state for a pause between spa reschedule and new steady state
-            # state_list.append(reschedule_state)
-
-            # Run opf to get final steady state
-            self.evaluate_islands()
-            after_connection_state = self.evaluate_state(list(self.islands_evaluated.values()))
-            after_connection_state['Title'] = 'Solving state after line connection'
-            state_list.append(after_connection_state)
+            state_list = within_energized(self, island_1, bus_ids)
 
         elif island_1 == island_2 and island_1 == -1:
             # Don't need to create a state list in this case, just record whats connected!
-
             if self.verbose:
                 print('Case: within blackout area')
-
-            # Check connections list for the buses in question
-            if len(self.blackout_connections['buses']) == 0:
-                # If no connections found, start a new connection list:
-                self.blackout_connections['buses'].append([int(bus_ids[0]), int(bus_ids[1])])
-                self.blackout_connections['lines'].append([bus_ids])
-            else:
-                # Figure out if buses belong to any already collected connections
-                flag = 0
-                count = 0
-                for bus_conn, line_conn in zip(self.blackout_connections['buses'], self.blackout_connections['lines']):
-                    ind = np.array([i in bus_conn for i in bus_ids.astype('int')])
-                    if any(ind):  # Are any buses in question in connections?
-                        # These could both be true
-                        unique_bus = bus_ids[~ind]  # Detects which bus is unique to connections
-                        flag = 1
-                        break
-                    count += 1
-
-                # If in no connections list, create a new one
-                if flag == 0:
-                    self.blackout_connections['buses'].append([int(bus_ids[0]), int(bus_ids[1])])
-                    self.blackout_connections['lines'].append([bus_ids])
-                elif flag == 1:
-                    for b_id in unique_bus:
-                        if b_id not in bus_conn:
-                            self.blackout_connections['buses'][count].append(int(b_id))
-                    self.blackout_connections['lines'][count].append(bus_ids)
+            within_blackout(self, bus_ids)
 
         elif island_1 != island_2 and (island_1 != -1 and island_2 != -1):
             if self.verbose:
                 print('Case: Connecting energized islands %s and %s \n' % (island_1, island_2))
-
-            # Get the state prior to connection
-            self.evaluate_islands()
-            prelim_state = self.evaluate_state(list(self.islands_evaluated.values()))
-            prelim_state['Title'] = 'Island reconnection preliminary state'  # Shows up on plot
-            state_list.append(prelim_state)
-
-            # Append all of island 2 to island 1
-            island_2_copy = deepcopy(self.islands[island_map[island_2]])
-            self.islands[island_map[island_1]]['bus'] = np.append(self.islands[island_map[island_1]]['bus'], island_2_copy['bus'], axis=0)
-            self.islands[island_map[island_1]]['branch'] = np.append(self.islands[island_map[island_1]]['branch'], island_2_copy['branch'], axis=0)
-            self.islands[island_map[island_1]]['gen'] = np.append(self.islands[island_map[island_1]]['gen'], island_2_copy['gen'], axis=0)
-            self.islands[island_map[island_1]]['gencost'] = np.append(self.islands[island_map[island_1]]['gencost'], island_2_copy['gencost'], axis=0)
-
-            # Delete island 2
-            del self.islands[island_map[island_2]]
-
-            # TODO: do this better, it gave me an error... or don't do it at all?
-            # Remember: to remove the weaker of the swing buses!
-            # ind = self.islands[island_map[island_1]]['bus'][:, 1] == 3
-            # # print(ind)
-            # bus_id = self.islands[island_map[island_1]]['bus'][ind, 0]
-            # # print(bus_id)
-            # gen_ind = self.islands[island_map[island_1]]['gen'][:, 0] == bus_id
-            # # print(gen_ind)
-            # gen_cap = self.islands[island_map[island_1]]['gen'][gen_ind, 8]
-            # # print(gen_cap)
-            # gen_weak_ind = self.islands[island_map[island_1]]['gen'][:, 8] == np.min(gen_cap)
-            # # print(gen_weak_ind)
-            # gen_weak_bus_id = self.islands[island_map[island_1]]['gen'][gen_weak_ind, 0]
-            # # print(gen_weak_bus_id)
-            # weak_bus_ind = self.islands[island_map[island_1]]['bus'][:, 0] == gen_weak_bus_id
-            # # print(weak_bus_ind)
-            #
-            # # Set weak bus type to 1 (PQ bus)
-            # self.islands[island_map[island_1]]['bus'][weak_bus_ind, 1] = 1
-
-            # Get the post connection state
-            self.evaluate_islands()
-            after_connection_state = self.evaluate_state(list(self.islands_evaluated.values()))
-            after_connection_state['Title'] = 'Solving state after island connection'
-            state_list.append(after_connection_state)
+            state_list = between_islands(self, island_1, island_2)
 
         elif island_1 != island_2 and (island_1 == -1 or island_2 == -1):
             # There should be state collection here
             if self.verbose:
                 print('Case: connecting non-energized bus to energized island')
-
-            # Which bus is blackout and which is energized?
-            if island_1 == -1:
-                black_bus = bus_ids[0]
-                energ_bus = bus_ids[1]
-                energ_island = island_2
-            else:
-                black_bus = bus_ids[1]
-                energ_bus = bus_ids[0]
-                energ_island = island_1
-
-            if self.verbose:
-                print('black bus: %s' % black_bus)
-                print('energized bus: %s' % energ_bus)
-
-            # Take preliminary snapshot of the system
-            prelim_state = self.evaluate_state(list(self.islands_evaluated.values()))
-            prelim_state['Title'] = 'Preliminary state'  # Shows up on plot
-            state_list.append(prelim_state)
-
-            # Check if bus is a part of connected blackout area
-            for bus_conn, line_conn in zip(self.blackout_connections['buses'], self.blackout_connections['lines']):
-                if black_bus in bus_conn:
-                    # Append all buses and lines to island (look to ideal case for element data)
-                    # buses = np.append(bus_conn, black_bus)
-                    # lines = np.append(line_conn, [bus_ids])
-
-                    print(bus_conn)
-                    print(line_conn)
-
-                    # Attach networked buses and lines to the island
-                    bus_ind = np.any([self.ideal_case['bus'][:, 0] == bus for bus in bus_conn], axis=0)
-                    line_ind = np.any([np.all(self.ideal_case['branch'][:, 0:2] == line, axis=1) for line in line_conn], axis=0)
-                    print(bus_ind)
-                    print(line_ind)
-
-                    # Im taking the data from the ideal case, therefore, they are already activated when attache d.
-                    self.islands[island_map[energ_island]]['bus'] = np.append(self.islands[island_map[energ_island]]['bus'],
-                                                                              np.concatenate((self.ideal_case['bus'][bus_ind, :], np.ones((len(bus_conn), 4))), axis=1),
-                                                                              axis=0)
-                    self.islands[island_map[energ_island]]['branch'] = np.append(self.islands[island_map[energ_island]]['branch'],
-                                                                                 np.concatenate((self.ideal_case['branch'][line_ind,:], np.ones((len(line_conn), 4))), axis=1),
-                                                                                 axis=0)
-
-                    # Remove lines from blackout list
-                    self.blackout_connections['buses'].remove(bus_conn)
-                    self.blackout_connections['lines'].remove(line_conn)
-
-                    # Exit the for loop
-                    break
-
-            # Add the line in question as well
-            line_ind = np.all(self.ideal_case['branch'][:, 0:2] == bus_ids, axis=1)
-            print(line_ind)
-
-            # Connect the extra line
-            self.islands[island_map[energ_island]]['branch'] = np.append(self.islands[island_map[energ_island]]['branch'],
-                                                                         np.append(self.ideal_case['branch'][line_ind, :], [1, 1, 1, 1]).reshape((1, -1)),
-                                                                         axis=0)
-
-            # Connect the bus if not already there
-            bus_ind = self.ideal_case['bus'][:, 0] == black_bus
-            print(bus_ind)
-            if np.any(bus_ind):
-                print('Im in here')
-                self.islands[island_map[energ_island]]['bus'] = np.append(self.islands[island_map[energ_island]]['bus'],
-                                                                          np.append(self.ideal_case['bus'][bus_ind, :], [1, 1, 1, 1]).reshape((1, -1)),
-                                                                          axis=0)
-
-            # Sort the bus matrix in ascending order
-            bus_order = np.argsort(self.islands[island_map[energ_island]]['bus'][:, 0], axis=0, kind='quicksort')
-            # print(self.islands[island_map[energ_island]]['bus'][:, 0])
-            # print(bus_order)
-            print(self.islands[island_map[energ_island]]['bus'][bus_order, 0])
-            self.islands[island_map[energ_island]]['bus'] = self.islands[island_map[energ_island]]['bus'][bus_order, :]
-
-            # Sort the branch matrix in ascending order
-            b1 = self.islands[island_map[energ_island]]['branch'][:, 0]
-            b2 = self.islands[island_map[energ_island]]['branch'][:, 1]
-            line_order = np.lexsort((b2, b1))  # First sort by bus1 then by bus2
-            print(self.islands[island_map[energ_island]]['branch'][line_order, 0:2])
-            self.islands[island_map[energ_island]]['branch'] = self.islands[island_map[energ_island]]['branch'][line_order, :]
-
-            # Run opf to get final steady state
-            self.evaluate_islands()
-            after_connection_state = self.evaluate_state(list(self.islands_evaluated.values()))
-            after_connection_state['Title'] = 'Solving state after line connection'
-            state_list.append(after_connection_state)
+            state_list = between_blackout_energized(self, island_1, island_2, bus_ids)
 
         else:
             if self.verbose:
