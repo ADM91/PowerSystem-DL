@@ -12,13 +12,34 @@ def within_energized(ps, island_1, bus_ids):
     state_list.append(prelim_state)
 
     # Set opf constraint to SPA diff
-    # TODO: I have to make sure that the current state is updated with respect to island ids
+    # Make sure branch in question is on island branch matrix (isn't if each bus is added via blackout connection)
     branch_ind = np.all(ps.islands[ps.island_map[island_1]]['branch'][:, 0:2] == bus_ids, axis=1)
-    ps.islands[ps.island_map[island_1]] = set_opf_constraints(test_case=ps.islands[ps.island_map[island_1]],
-                                                              set_branch=branch_ind,
-                                                              max_SPA=10,
-                                                              set_gen=False,
-                                                              set_loads=False)
+    if np.any(branch_ind):
+        # Set the opf constraints
+        ps.islands[ps.island_map[island_1]] = set_opf_constraints(test_case=ps.islands[ps.island_map[island_1]],
+                                                                  set_branch=branch_ind,
+                                                                  max_SPA=10,
+                                                                  set_gen=False,
+                                                                  set_loads=False)
+    else:
+        # Add branch to the island
+        branch_ind = np.all(ps.islands['blackout']['branch'][:, 0:2] == bus_ids, axis=1)
+        line_data = ps.islands['blackout']['branch'][branch_ind, :]
+        line_data[:, 10] = 1  # Enable the line
+        ps.islands[ps.island_map[island_1]]['branch'] = np.append(
+            ps.islands[ps.island_map[island_1]]['branch'],
+            np.concatenate((line_data, np.zeros((len(line_data), 4))), axis=1),
+            axis=0)
+        # Set the opf constraints
+        branch_ind = np.all(ps.islands[ps.island_map[island_1]]['branch'][:, 0:2] == bus_ids, axis=1)
+        ps.islands[ps.island_map[island_1]] = set_opf_constraints(test_case=ps.islands[ps.island_map[island_1]],
+                                                                  set_branch=branch_ind,
+                                                                  max_SPA=10,
+                                                                  set_gen=False,
+                                                                  set_loads=False)
+
+
+
     # Run opf on the islands
     ps.evaluate_islands()  # Matpower needs to be altered for this to work -- Think I got it
 

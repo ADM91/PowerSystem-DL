@@ -11,7 +11,6 @@ from system.line_connection_cases.between_blackout_energized import between_blac
 from system.line_connection_cases.between_islands import between_islands
 
 
-
 def make_iterable(obj):
     if type(obj) == list:
         return obj

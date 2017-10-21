@@ -38,9 +38,12 @@ def between_blackout_energized(ps, island_1, island_2, bus_ids):
 
     # Deal with any extra blackout lines that connect the blackout bus to the energized system
     # 1: find if such lines exist (index to line in islands blackout matrix)
-    line_ind = [np.any([ps.islands[ps.island_map[energ_island]]['bus'][:, 0] == bus for bus in branch]) and
-                np.any([bus_ids == bus for bus in branch])
-                for branch in ps.islands['blackout']['branch']]
+    # line_ind = [np.any([ps.islands[ps.island_map[energ_island]]['bus'][:, 0] == bus for bus in branch]) and
+    #             np.any([bus_ids == bus for bus in branch])
+    #             for branch in ps.islands['blackout']['branch'][:, 0:2]]
+    # line_ind = [np.any([ps.islands[ps.island_map[energ_island]]['bus'][:, 0] == bus for bus in branch])
+    #             for branch in ps.islands['blackout']['branch'][:, 0:2]]
+    line_ind = np.all(ps.islands['blackout']['branch'][:, 0:2] == bus_ids, axis=1)
 
     # 2: add to energized island branch matrix
     line_data = ps.islands['blackout']['branch'][line_ind, :]
@@ -50,6 +53,7 @@ def between_blackout_energized(ps, island_1, island_2, bus_ids):
         print('Line data for connector line(s) being swapped to the energized system:')
         print(line_data[:, [0, 1, 5, 10]])
     added_lines = np.concatenate((line_data, np.zeros((len(line_data), 4))), axis=1)
+    added_lines[:, 10] = 1  # Enable the added line
     ps.islands[ps.island_map[energ_island]]['branch'] = np.append(
         ps.islands[ps.island_map[energ_island]]['branch'],
         added_lines,
@@ -59,10 +63,10 @@ def between_blackout_energized(ps, island_1, island_2, bus_ids):
     ps.islands['blackout']['branch'] = np.delete(ps.islands['blackout']['branch'], np.where(line_ind), axis=0)
 
     # Make sure line in question is enabled
-    line_ind = np.all(ps.islands[ps.island_map[energ_island]]['branch'][:, 0:2] == bus_ids, axis=1)
-    ps.islands[ps.island_map[energ_island]]['branch'][line_ind, 10] = 1
+    # line_ind = np.all(ps.islands[ps.island_map[energ_island]]['branch'][:, 0:2] == bus_ids, axis=1)
+    # ps.islands[ps.island_map[energ_island]]['branch'][line_ind, 10] = 1
 
-    # Add the bus to energized bus matrix if not already there
+    # Add the bus to energized bus matrix if not already there (taken from ideal case, i.e. enabled)
     bus_ind = ps.ideal_case['bus'][:, 0] == black_bus
     if np.any(bus_ind):
         ps.islands[ps.island_map[energ_island]]['bus'] = np.append(ps.islands[ps.island_map[energ_island]]['bus'],
@@ -90,7 +94,7 @@ def between_blackout_energized(ps, island_1, island_2, bus_ids):
             # 1: find if such lines exist (index to line in islands blackout matrix)
             line_ind = [np.any([ps.islands[ps.island_map[energ_island]]['bus'][:, 0] == bus for bus in branch]) and
                         np.any([bus_conn == bus for bus in branch])
-                        for branch in ps.islands['blackout']['branch']]
+                        for branch in ps.islands['blackout']['branch'][:, 0:2]]
 
             # 2: add to energized island branch matrix
             line_data = ps.islands['blackout']['branch'][line_ind, :]
