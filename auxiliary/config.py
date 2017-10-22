@@ -63,8 +63,8 @@ deconstruct_3 = np.array([False, False, True, True,
 
 # ---------------Deconstruction 4-----------------
 # Needs to connect a blackout network
-deconstruct_4 = np.array([False, False, True, True,
-                          True, False, False, True,
+deconstruct_4 = np.array([False, False, True, False,
+                          False, False, False, True,
                           False, True, True, True,
-                          False, True, True, True,
+                          True, True, True, True,
                           False, True, True, False])

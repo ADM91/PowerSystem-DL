@@ -1,6 +1,7 @@
-import time
 from matplotlib import pyplot as plt
 from matplotlib import animation
+import matplotlib.patches as mpatches
+import matplotlib.lines as mlines
 import numpy as np
 from oct2py import octave
 
@@ -88,10 +89,28 @@ def visualize_state(ideal_case, ideal_state, state_list, fig_num=1):
     line_curr = ax3.bar(line_x+line_width/2, np.zeros(len(line_x)), line_width, align='center', alpha=0.9, color='red')
     line_spa = ax4.bar(line_x, np.zeros(len(line_x)), line_width*2, align='center', alpha=0.9, color='green')
 
-    # TODO: ADD blackout section and set colors deliberately
-    ax1.legend(['Generator limit', 'Ideal state', 'Current state'], loc='upper left')
-    ax2.legend(['Ideal load', 'Current load'], loc='upper left')
-    ax3.legend(['Line limit', 'Ideal load', 'Current load'], loc='upper left')
+    gen_limit_patch = mpatches.Patch(color='green', alpha=0.2, label='Limit')
+    gen_offline_patch = mpatches.Patch(color='black', alpha=0.2, label='Offline')
+    gen_ideal_patch = mpatches.Patch(color='blue', alpha=0.9, label='Ideal state')
+    gen_current_patch = mpatches.Patch(color='red', alpha=0.9, label='Current state')
+
+    load_ideal_patch = mpatches.Patch(color='blue', alpha=0.2, label='Ideal state')
+    load_offline_patch = mpatches.Patch(color='black', alpha=0.2, label='Blackout')
+    load_current_patch = mpatches.Patch(color='green', alpha=0.9, label='Current state')
+
+    line_limit_patch = mpatches.Patch(color='green', alpha=0.2, label='Limit')
+    line_offline_patch = mpatches.Patch(color='black', alpha=0.2, label='Offline')
+    line_ideal_patch = mpatches.Patch(color='blue', alpha=0.9, label='Ideal state')
+    line_current_patch = mpatches.Patch(color='red', alpha=0.9, label='Current state')
+
+    spa_green = mpatches.Patch(color='green', alpha=0.9, label='Line SPA diff')
+    spa_red = mpatches.Patch(color='red', alpha=0.9, label='Line in question')
+    spa_limit = mlines.Line2D([], [], color='black', label='SPA diff limit')
+
+    ax1.legend(handles=[gen_limit_patch, gen_offline_patch, gen_ideal_patch, gen_current_patch], loc='upper left')
+    ax2.legend(handles=[load_ideal_patch, load_offline_patch, load_current_patch], loc='upper left')
+    ax3.legend(handles=[line_limit_patch, line_offline_patch, line_ideal_patch, line_current_patch], loc='upper left')
+    ax4.legend(handles=[spa_green, spa_red, spa_limit], loc='upper left')
 
     def update(frame):
         # Manipulate frame

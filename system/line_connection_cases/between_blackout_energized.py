@@ -92,45 +92,58 @@ def between_blackout_energized(ps, island_1, island_2, bus_ids):
 
             # Deal with any blackout lines that connect the blackout system to the energized system
             # 1: find if such lines exist (index to line in islands blackout matrix)
-            line_ind = [np.any([ps.islands[ps.island_map[energ_island]]['bus'][:, 0] == bus for bus in branch]) and
-                        np.any([bus_conn == bus for bus in branch])
-                        for branch in ps.islands['blackout']['branch'][:, 0:2]]
+            # line_ind = [np.any([ps.islands[ps.island_map[energ_island]]['bus'][:, 0] == bus for bus in branch]) and
+            #             np.any([bus_conn == bus for bus in branch])
+            #             for branch in ps.islands['blackout']['branch'][:, 0:2]]
+            line_conn_np = np.array(line_conn)
+            line_ind = [np.any(np.all(line_conn_np == branch, axis=1)) for branch in ps.islands['blackout']['branch'][:, 0:2]]
 
-            # 2: add to energized island branch matrix
+            # 2: add branch(s) to energized island branch matrix
             line_data = ps.islands['blackout']['branch'][line_ind, :]
+            line_data[:, 10] = 1  # Enable the line(s)!
             if ps.verbose:
                 print('Line data for connector line(s) being swapped to the energized system:')
                 print(line_data[:, [0, 1, 5, 10]])
             ps.islands[ps.island_map[energ_island]]['branch'] = np.append(
                 ps.islands[ps.island_map[energ_island]]['branch'],
-                line_data,
+                np.concatenate((line_data, np.zeros((len(line_conn), 4))), axis=1),
                 axis=0)
 
-            # 3: remove from the blackout branch matrix
-            ps.islands['blackout']['branch'] = np.delete(ps.islands['blackout']['branch'], np.where(line_ind), axis=0)
-
-            # Attach networked buses and lines to the island
-            bus_ind = np.any([ps.ideal_case['bus'][:, 0] == bus for bus in bus_conn], axis=0)
-            line_ind = np.any([np.all(ps.ideal_case['branch'][:, 0:2] == line, axis=1) for line in line_conn], axis=0)
-
-            # Im taking the data from the ideal case, therefore, they are already activated when attached.
-            ps.islands[ps.island_map[energ_island]]['bus'] = np.append(ps.islands[ps.island_map[energ_island]]['bus'],
-                                                                       np.concatenate((ps.ideal_case['bus'][bus_ind, :], np.zeros((len(bus_conn), 4))), axis=1),
-                                                                       axis=0)
-            ps.islands[ps.island_map[energ_island]]['branch'] = np.append(ps.islands[ps.island_map[energ_island]]['branch'],
-                                                                          np.concatenate((ps.ideal_case['branch'][line_ind,:], np.zeros((len(line_conn), 4))), axis=1),
-                                                                          axis=0)
-            # Remove bus and branch from blackout island
-            bus_ind = np.any([ps.islands['blackout']['bus'][:, 0] == bus for bus in bus_conn], axis=0)
+            # Remove branch(s) from blackout island
             line_ind = np.any([np.all(ps.islands['blackout']['branch'][:, 0:2] == line, axis=1) for line in line_conn], axis=0)
-            ps.islands['blackout']['bus'] = np.delete(ps.islands['blackout']['bus'], np.where(bus_ind), axis=0)
             ps.islands['blackout']['branch'] = np.delete(ps.islands['blackout']['branch'], np.where(line_ind), axis=0)
 
-            # Remove lines from blackout list and from blackout island
+
+            # # 3: remove from the blackout branch matrix
+            # ps.islands['blackout']['branch'] = np.delete(ps.islands['blackout']['branch'], np.where(line_ind), axis=0)
+
+            # Attach networked buses to the island (if it doesn't already exist!!!!)
+            # bus_ind = np.any([ps.ideal_case['bus'][:, 0] == bus for bus in bus_conn], axis=0)
+            bus_ind = np.where([bus in bus_conn for bus in ps.ideal_case['bus'][:, 0]])[0]
+
+            print(bus_ind)
+
+            # line_ind = np.any([np.all(ps.ideal_case['branch'][:, 0:2] == line, axis=1) for line in line_conn], axis=0)
+
+            # If bus(es) not already in the island bus matrix, put them there and remove from blackout:
+            for ind, bus in zip(bus_ind, ps.ideal_case['bus'][bus_ind, 0]):
+                if bus not in ps.islands[ps.island_map[energ_island]]['bus'][:, 0]:
+                    print(ind)
+                    print(ps.ideal_case['bus'][ind, :])
+                    ps.islands[ps.island_map[energ_island]]['bus'] = np.append(ps.islands[ps.island_map[energ_island]]['bus'],
+                                                                               np.concatenate((ps.ideal_case['bus'][ind, :].reshape((1, -1)), np.zeros((1, 4))), axis=1),
+                                                                               axis=0)
+                ind2 = ps.islands['blackout']['bus'][:, 0] == bus
+                ps.islands['blackout']['bus'] = np.delete(ps.islands['blackout']['bus'], np.where(ind2), axis=0)
+
+            # ps.islands[ps.island_map[energ_island]]['branch'] = np.append(ps.islands[ps.island_map[energ_island]]['branch'],
+            #                                                               np.concatenate((ps.ideal_case['branch'][line_ind,:], np.zeros((len(line_conn), 4))), axis=1),
+            #                                                               axis=0)
+
+            # Remove lines and buses from blackout list
             ps.blackout_connections['buses'].remove(bus_conn)
             ps.blackout_connections['lines'].remove(line_conn)
     
-            # Exit the for loop
             break
 
     if ps.verbose:

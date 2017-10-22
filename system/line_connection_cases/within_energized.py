@@ -30,6 +30,10 @@ def within_energized(ps, island_1, bus_ids):
             ps.islands[ps.island_map[island_1]]['branch'],
             np.concatenate((line_data, np.zeros((len(line_data), 4))), axis=1),
             axis=0)
+
+        # Remove branch from blackout
+        ps.islands['blackout']['branch'] = np.delete(ps.islands['blackout']['branch'], np.where(branch_ind), axis=0)
+
         # Set the opf constraints
         branch_ind = np.all(ps.islands[ps.island_map[island_1]]['branch'][:, 0:2] == bus_ids, axis=1)
         ps.islands[ps.island_map[island_1]] = set_opf_constraints(test_case=ps.islands[ps.island_map[island_1]],
@@ -37,7 +41,6 @@ def within_energized(ps, island_1, bus_ids):
                                                                   max_SPA=10,
                                                                   set_gen=False,
                                                                   set_loads=False)
-
 
 
     # Run opf on the islands

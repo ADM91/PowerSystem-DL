@@ -532,7 +532,7 @@ class PowerSystem(object):
             # Don't need to create a state list in this case, just record whats connected!
             if self.verbose:
                 print('Case: within blackout area')
-            within_blackout(self, bus_ids)
+            state_list = within_blackout(self, bus_ids)
 
         elif island_1 != island_2 and (island_1 != -1 and island_2 != -1):
             if self.verbose:
