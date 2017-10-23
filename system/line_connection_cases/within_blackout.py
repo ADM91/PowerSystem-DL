@@ -3,8 +3,6 @@ import numpy as np
 
 def within_blackout(ps, bus_ids):
 
-    state_list = list()
-
     # Check connections list for the buses in question
     if len(ps.blackout_connections['buses']) == 0:
         # If no connections found, start a new connection list:
@@ -37,6 +35,7 @@ def within_blackout(ps, bus_ids):
     ps.evaluate_islands()
     after_connection_state = ps.evaluate_state(list(ps.islands_evaluated.values()))
     after_connection_state['Title'] = 'Connecting blackout lines %s and %s' % (bus_ids[0], bus_ids[1])
+    state_list = list()
     state_list.append(after_connection_state)
 
     return state_list

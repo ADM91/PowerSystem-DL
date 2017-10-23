@@ -5,12 +5,6 @@ def between_blackout_energized(ps, island_1, island_2, bus_ids):
 
     state_list = list()
 
-    # If there is another line connecting this bus to the energized island, we have to find it and remove it
-    # from the blackout line matrix, it is now an out-of-service line within the energized island.
-
-    # I have a problem with my tabulation of buses, If I add a blackout connector line, I have to add that bus as
-    # well, which I think ive neglected.
-
     # Which bus is blackout and which is energized?
     if island_1 == -1:
         black_bus = bus_ids[0]
@@ -36,16 +30,9 @@ def between_blackout_energized(ps, island_1, island_2, bus_ids):
     prelim_state['Title'] = 'Preliminary state'  # Shows up on plot
     state_list.append(prelim_state)
 
-    # Deal with any extra blackout lines that connect the blackout bus to the energized system
-    # 1: find if such lines exist (index to line in islands blackout matrix)
-    # line_ind = [np.any([ps.islands[ps.island_map[energ_island]]['bus'][:, 0] == bus for bus in branch]) and
-    #             np.any([bus_ids == bus for bus in branch])
-    #             for branch in ps.islands['blackout']['branch'][:, 0:2]]
-    # line_ind = [np.any([ps.islands[ps.island_map[energ_island]]['bus'][:, 0] == bus for bus in branch])
-    #             for branch in ps.islands['blackout']['branch'][:, 0:2]]
     line_ind = np.all(ps.islands['blackout']['branch'][:, 0:2] == bus_ids, axis=1)
 
-    # 2: add to energized island branch matrix
+    # Add branch to energized island branch matrix
     line_data = ps.islands['blackout']['branch'][line_ind, :]
     if ps.verbose:
         print('Line indices of swapped connectors:')
@@ -59,27 +46,42 @@ def between_blackout_energized(ps, island_1, island_2, bus_ids):
         added_lines,
         axis=0)
 
-    # 3: remove from the blackout branch matrix
-    ps.islands['blackout']['branch'] = np.delete(ps.islands['blackout']['branch'], np.where(line_ind), axis=0)
-
-    # Make sure line in question is enabled
-    # line_ind = np.all(ps.islands[ps.island_map[energ_island]]['branch'][:, 0:2] == bus_ids, axis=1)
-    # ps.islands[ps.island_map[energ_island]]['branch'][line_ind, 10] = 1
-
-    # Add the bus to energized bus matrix if not already there (taken from ideal case, i.e. enabled)
+    # Add the bus to energized bus matrix if not already there (from ideal case but set load served = 0))
     bus_ind = ps.ideal_case['bus'][:, 0] == black_bus
     if np.any(bus_ind):
+        bus_added = np.append(ps.ideal_case['bus'][bus_ind, :], [0, 0, 0, 0]).reshape((1, -1))
+        if black_bus in ps.action_list['fixed load']:
+            bus_added[:, 2:4] = 0  # Set the load equal to zero
         ps.islands[ps.island_map[energ_island]]['bus'] = np.append(ps.islands[ps.island_map[energ_island]]['bus'],
-                                                                   np.append(ps.ideal_case['bus'][bus_ind, :], [0, 0, 0, 0]).reshape((1, -1)),
+                                                                   bus_added,
                                                                    axis=0)
+        # Move generator and dispatchable loads (if they exist) to the energized island gen and gencost matricies
+        # if np.sum(ps.islands[ps.island_map[energ_island]]['gen'][:, 0] == black_bus) == 0:  # perform if generators aren't already there
+        gen_ind = ps.islands['blackout']['gen'][:, 0] == black_bus
+        if np.sum(gen_ind) >= 1:
+            gen = ps.islands['blackout']['gen'][gen_ind, :]
+            gencost = ps.islands['blackout']['gencost'][gen_ind, :]
+            gen[:, 7] = 0  # Leave out of service, activating the generator/load is a separate action
+            gen = np.append(gen, np.zeros((np.sum(gen_ind), 4)), axis=1)
 
-    # Remove stuff from blackout island
+            print(gen)
+            print(gencost)
+            ps.islands[ps.island_map[energ_island]]['gen'] = np.append(ps.islands[ps.island_map[energ_island]]['gen'],
+                                                                       gen,
+                                                                       axis=0)
+            ps.islands[ps.island_map[energ_island]]['gencost'] = np.append(ps.islands[ps.island_map[energ_island]]['gencost'],
+                                                                           gencost,
+                                                                           axis=0)
+            # Remove gen or dispatch load from blackout matricies
+            ps.islands['blackout']['gen'] = np.delete(ps.islands['blackout']['gen'], np.where(gen_ind), axis=0)
+            ps.islands['blackout']['gencost'] = np.delete(ps.islands['blackout']['gencost'], np.where(gen_ind), axis=0)
+
+    # Remove bus and branch from blackout island
     bus_ind = ps.islands['blackout']['bus'][:, 0] == black_bus
-    line_ind = np.all(ps.islands['blackout']['branch'][:, 0:2] == bus_ids, axis=1)
     ps.islands['blackout']['bus'] = np.delete(ps.islands['blackout']['bus'], np.where(bus_ind), axis=0)
     ps.islands['blackout']['branch'] = np.delete(ps.islands['blackout']['branch'], np.where(line_ind), axis=0)
 
-    # Check if blackout bus is a part of connected blackout area and connect all if so
+    # Check for blackout connected buses
     for bus_conn, line_conn in zip(ps.blackout_connections['buses'], ps.blackout_connections['lines']):
         if black_bus in bus_conn:
 
@@ -91,14 +93,10 @@ def between_blackout_energized(ps, island_1, island_2, bus_ids):
                 print(line_conn)
 
             # Deal with any blackout lines that connect the blackout system to the energized system
-            # 1: find if such lines exist (index to line in islands blackout matrix)
-            # line_ind = [np.any([ps.islands[ps.island_map[energ_island]]['bus'][:, 0] == bus for bus in branch]) and
-            #             np.any([bus_conn == bus for bus in branch])
-            #             for branch in ps.islands['blackout']['branch'][:, 0:2]]
             line_conn_np = np.array(line_conn)
             line_ind = [np.any(np.all(line_conn_np == branch, axis=1)) for branch in ps.islands['blackout']['branch'][:, 0:2]]
 
-            # 2: add branch(s) to energized island branch matrix
+            # Add branch(s) to energized island branch matrix
             line_data = ps.islands['blackout']['branch'][line_ind, :]
             line_data[:, 10] = 1  # Enable the line(s)!
             if ps.verbose:
@@ -113,32 +111,42 @@ def between_blackout_energized(ps, island_1, island_2, bus_ids):
             line_ind = np.any([np.all(ps.islands['blackout']['branch'][:, 0:2] == line, axis=1) for line in line_conn], axis=0)
             ps.islands['blackout']['branch'] = np.delete(ps.islands['blackout']['branch'], np.where(line_ind), axis=0)
 
-
-            # # 3: remove from the blackout branch matrix
-            # ps.islands['blackout']['branch'] = np.delete(ps.islands['blackout']['branch'], np.where(line_ind), axis=0)
-
             # Attach networked buses to the island (if it doesn't already exist!!!!)
-            # bus_ind = np.any([ps.ideal_case['bus'][:, 0] == bus for bus in bus_conn], axis=0)
             bus_ind = np.where([bus in bus_conn for bus in ps.ideal_case['bus'][:, 0]])[0]
-
-            print(bus_ind)
-
-            # line_ind = np.any([np.all(ps.ideal_case['branch'][:, 0:2] == line, axis=1) for line in line_conn], axis=0)
 
             # If bus(es) not already in the island bus matrix, put them there and remove from blackout:
             for ind, bus in zip(bus_ind, ps.ideal_case['bus'][bus_ind, 0]):
                 if bus not in ps.islands[ps.island_map[energ_island]]['bus'][:, 0]:
-                    print(ind)
-                    print(ps.ideal_case['bus'][ind, :])
+                    bus_added = np.append(ps.ideal_case['bus'][ind, :], [0, 0, 0, 0]).reshape((1, -1))
+                    if black_bus in ps.action_list['fixed load']:
+                        bus_added[:, 2:4] = 0  # Set the load equal to zero
                     ps.islands[ps.island_map[energ_island]]['bus'] = np.append(ps.islands[ps.island_map[energ_island]]['bus'],
-                                                                               np.concatenate((ps.ideal_case['bus'][ind, :].reshape((1, -1)), np.zeros((1, 4))), axis=1),
+                                                                               bus_added,
                                                                                axis=0)
+
+                    # Move generator and dispatchable loads (if they exist)
+                    gen_ind = ps.islands['blackout']['gen'][:, 0] == bus
+                    if np.sum(gen_ind) >= 1:
+                        gen = ps.islands['blackout']['gen'][gen_ind, :]
+                        gencost = ps.islands['blackout']['gencost'][gen_ind, :]
+                        gen[:, 7] = 0  # Leave out of service, activating the generator/load is a separate action
+                        gen = np.append(gen, np.zeros((np.sum(gen_ind), 4)), axis=1)
+
+                        ps.islands[ps.island_map[energ_island]]['gen'] = np.append(
+                            ps.islands[ps.island_map[energ_island]]['gen'],
+                            gen,
+                            axis=0)
+                        ps.islands[ps.island_map[energ_island]]['gencost'] = np.append(
+                            ps.islands[ps.island_map[energ_island]]['gencost'],
+                            gencost,
+                            axis=0)
+                        # Remove gen or dispatch load from blackout matricies
+                        ps.islands['blackout']['gen'] = np.delete(ps.islands['blackout']['gen'], np.where(gen_ind), axis=0)
+                        ps.islands['blackout']['gencost'] = np.delete(ps.islands['blackout']['gencost'], np.where(gen_ind), axis=0)
+
+                # Remove energized bus from blackout matrix
                 ind2 = ps.islands['blackout']['bus'][:, 0] == bus
                 ps.islands['blackout']['bus'] = np.delete(ps.islands['blackout']['bus'], np.where(ind2), axis=0)
-
-            # ps.islands[ps.island_map[energ_island]]['branch'] = np.append(ps.islands[ps.island_map[energ_island]]['branch'],
-            #                                                               np.concatenate((ps.ideal_case['branch'][line_ind,:], np.zeros((len(line_conn), 4))), axis=1),
-            #                                                               axis=0)
 
             # Remove lines and buses from blackout list
             ps.blackout_connections['buses'].remove(bus_conn)

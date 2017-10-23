@@ -36,6 +36,7 @@ line_ratings = line_ratings + 50
 # Ones indicate buses w/ dispatchable loads
 dispatchable_loads = np.array([0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1])
 
+
 # Deconstructed cases
 # ---------------Deconstruction 1-----------------
 # Only internal reconnection
@@ -62,9 +63,47 @@ deconstruct_3 = np.array([False, False, True, True,
                           False, True, False, False])
 
 # ---------------Deconstruction 4-----------------
-# Needs to connect a blackout network
+# Connects a blackout network
 deconstruct_4 = np.array([False, False, True, False,
                           False, False, False, True,
                           False, True, True, True,
                           True, True, True, True,
                           False, True, True, False])
+
+# ---------------Deconstruction 5-----------------
+# Disables fixed loads
+deconstruct_5 = np.array([True, False, True, True,
+                          True, False, False, False,
+                          False, True, True, True,
+                          False, False, False, False,
+                          False, True, True, False])
+
+# ---------------Deconstruction 6-----------------
+# Disables generators
+deconstruct_6 = np.array([True, False, True, True,
+                          True, True, False, False,
+                          False, False, False, False,
+                          False, False, False, False,
+                          False, False, False, False])
+
+# Lines:
+#       [[  1.,   2.],
+#        [  1.,   5.],
+#        [  2.,   3.],
+#        [  2.,   4.],
+#        [  2.,   5.],
+#        [  3.,   4.],
+#        [  4.,   5.],
+#        [  4.,   7.],
+#        [  4.,   9.],
+#        [  5.,   6.],
+#        [  6.,  11.],
+#        [  6.,  12.],
+#        [  6.,  13.],
+#        [  7.,   8.],
+#        [  7.,   9.],
+#        [  9.,  10.],
+#        [  9.,  14.],
+#        [ 13.,  14.],
+#        [ 10.,  11.],
+#        [ 12.,  13.]])

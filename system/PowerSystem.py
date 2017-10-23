@@ -91,25 +91,25 @@ class PowerSystem(object):
         """
 
         # Initialize disconnected elements dictionary
-        self.action_list = {'lines': np.empty((0, 2)),
-                            'fixed loads': np.empty((0, 1)),
-                            'dispatch loads': np.empty((0, 1)),
-                            'generators': np.empty((0, 1))}
+        self.action_list = {'line': np.empty((0, 2)),
+                            'fixed load': np.empty((0, 1)),
+                            'dispatch load': np.empty((0, 1)),
+                            'gen': np.empty((0, 1))}
 
         # Use current state to generate action list!
         # We have defined all disabled elements in the state as zeros, so we index
 
         line_ind = (self.current_state['real inj'][:, -1] == 0).reshape(-1)
-        self.action_list['lines'] = self.current_state['real inj'][line_ind, 0:2]
+        self.action_list['line'] = self.current_state['real inj'][line_ind, 0:2]
 
         fixed_load_ind = (self.current_state['fixed load'][:, -1] == 0).reshape(-1)
-        self.action_list['fixed loads'] = self.current_state['fixed load'][fixed_load_ind, 0]
+        self.action_list['fixed load'] = self.current_state['fixed load'][fixed_load_ind, 0]
 
         dispatch_load_ind = (self.current_state['dispatch load'][:, -1] == 0).reshape(-1)
-        self.action_list['dispatch loads'] = self.current_state['dispatch load'][dispatch_load_ind, 0]
+        self.action_list['dispatch load'] = self.current_state['dispatch load'][dispatch_load_ind, 0]
 
         gen_ind = (self.current_state['real gen'][:, -1] == 0).reshape(-1)
-        self.action_list['generators'] = self.current_state['real gen'][gen_ind, 0]
+        self.action_list['gen'] = self.current_state['real gen'][gen_ind, 0]
 
     def initialize_state(self):
 
@@ -222,11 +222,13 @@ class PowerSystem(object):
                 for bus_id in island['gen'][gen_ind, 0]:
                     ind1 = (state['real gen'][:, 0] == bus_id).reshape((-1,))
                     ind2 = (island['gen'][gen_ind, 0] == bus_id).reshape((-1,))
+                    print(ind1)
+                    print(ind2)
                     state['real gen'][ind1, 1] = island['gen'][gen_ind, 1][ind2]
                     state['real gen'][ind1, 2] = island['id']
                     state['real gen'][ind1, 3] = island['gen'][gen_ind, 7][ind2]  # Gen status
 
-                # Fill in dispatchable load states for island i
+                # Fill in the dispatchable load states for island i
                 d_load_ind = make_iterable(octave.isload(island['gen']) == 1).reshape((-1,))
                 if self.verbose_state:
                     print('\nDispatchable load true:')
@@ -238,8 +240,10 @@ class PowerSystem(object):
                     state['dispatch load'][ind1, 2] = island['id']
                     state['dispatch load'][ind1, 3] = island['gen'][d_load_ind, 7][ind2]  # gen/load status
 
-                # Fill fixed load states for island i
-                f_load_ind = make_iterable(np.any(island['bus'][:, 2:4] > 0, axis=1)).reshape((-1,))
+                # Fill fixed load states for island i (loads identified based on ideal case, island might have unserved load)
+                f_load_ind = [np.any(self.ideal_case['bus'][ind[0], 2:4] > 0, axis=1) for ind in [np.where(island_bus == self.ideal_case['bus'][:, 0]) for island_bus in island['bus'][:, 0]]]
+                f_load_ind = np.where(f_load_ind)[0]
+
                 if self.verbose_state:
                     print('\nFixed load true:')
                     print(f_load_ind)
@@ -249,9 +253,12 @@ class PowerSystem(object):
                 for bus_id in island['bus'][f_load_ind, 0]:
                     ind1 = (state['fixed load'][:, 0] == bus_id).reshape((-1,))
                     ind2 = (island['bus'][f_load_ind, 0] == bus_id).reshape((-1,))
-                    state['fixed load'][ind1, 1] = island['bus'][f_load_ind, 2][ind2]
-                    state['fixed load'][ind1, 2] = island['id']
-                    state['fixed load'][ind1, 3] = 1  # Fixed load is always on in energized island
+                    state['fixed load'][ind1, 1] = island['bus'][f_load_ind, 2][ind2]  # Real power
+                    state['fixed load'][ind1, 2] = island['id']                        # Island id
+                    if np.any(island['bus'][f_load_ind, 2:4][ind2] > 0):
+                        state['fixed load'][ind1, 3] = 1                               # On/off state
+                    else:
+                        state['fixed load'][ind1, 3] = 0
 
                 # Fill real injection to each line for island i
                 for from_to in island['branch'][:, [0, 1, 13, 14]]:
@@ -370,6 +377,10 @@ class PowerSystem(object):
         # Run the island detection function
         islands = octave.extract_islands(case)
 
+        if self.verbose:
+            for i in islands:
+                print(i['gen'][:, [0,1,2,7]])
+
         # Detect if there is load and or gen
         islands = self.is_load_is_gen(islands)
 
@@ -452,15 +463,30 @@ class PowerSystem(object):
                                                            self.ideal_case['branch'][ind1, :], axis=0)
 
         # Populate blackout generators
-        gen_flag = np.concatenate((state['real gen'], state['dispatch load']), axis=0)
-        gen_ind = np.isnan(gen_flag[:, 1]).reshape((-1,))
-        gen_id = gen_flag[gen_ind, 0]
+        gen_ind = np.isnan(state['real gen'][:, 1]).reshape((-1,))
+        gen_id = state['real gen'][gen_ind, 0]
         for g_id in gen_id:
-            ind1 = (self.ideal_case['gen'][:, 0] == g_id).reshape((-1,))
+            gen_ind = (octave.isload(self.ideal_case['gen']) == 0).reshape(-1)
+            gen = self.ideal_case['gen'][gen_ind, :]
+            gencost = self.ideal_case['gencost'][gen_ind, :]
+            ind1 = (gen[:, 0] == g_id).reshape(-1,)
             self.islands['blackout']['gen'] = np.append(self.islands['blackout']['gen'],
-                                                        self.ideal_case['gen'][ind1, :], axis=0)
+                                                        gen[ind1, :], axis=0)
             self.islands['blackout']['gencost'] = np.append(self.islands['blackout']['gencost'],
-                                                            self.ideal_case['gencost'][ind1, :], axis=0)
+                                                            gencost[ind1, :], axis=0)
+
+        # Populate blackout dispatchable loads
+        load_ind = np.isnan(state['dispatch load'][:, 1]).reshape((-1,))
+        load_id = state['dispatch load'][load_ind, 0]
+        for g_id in gen_id:
+            gen_ind = (octave.isload(self.ideal_case['gen']) == 1).reshape(-1)  # index of dispatchable loads
+            gen = self.ideal_case['gen'][gen_ind, :]
+            gencost = self.ideal_case['gencost'][gen_ind, :]
+            ind1 = (gen[:, 0] == g_id).reshape(-1,)
+            self.islands['blackout']['gen'] = np.append(self.islands['blackout']['gen'],
+                                                        gen[ind1, :], axis=0)
+            self.islands['blackout']['gencost'] = np.append(self.islands['blackout']['gencost'],
+                                                            gencost[ind1, :], axis=0)
 
         # Set statuses in blackout to zero
         self.islands['blackout']['branch'][:, 10] = 0
@@ -501,13 +527,13 @@ class PowerSystem(object):
         """
 
         # Verify that action is available!
-        ind = np.all(self.action_list['lines'] == bus_ids, axis=1)
+        ind = np.all(self.action_list['line'] == bus_ids, axis=1)
         if np.sum(ind) != 1:
             print('Buses not on action list!')
             return
 
         # Remove line from the action list
-        self.action_list['lines'] = np.delete(self.action_list['lines'], np.where(ind), axis=0)
+        self.action_list['line'] = np.delete(self.action_list['line'], np.where(ind), axis=0)
 
         # Initialize list of states
         state_list = list()
@@ -550,16 +576,164 @@ class PowerSystem(object):
                 print('SOMETHING IS NOT RIGHT')
 
         # Ensure that current state variables has the most recent information
-        self.current_state = self.evaluate_state(list(self.islands_evaluated.values()))
+        self.current_state = state_list[-1]
 
         # Feed the objective function state list.
         return state_list
 
-    def action_load(self, bus_id):
-        pass
+    def action_fixed_load(self, bus_id):
+
+        # Verify that action is available!
+        ind = self.action_list['fixed load'] == bus_id
+        print(ind)
+        if np.sum(ind) != 1:
+            print('Load not on action list!')
+            return
+
+        # Remove line from the action list
+        self.action_list['fixed load'] = np.delete(self.action_list['fixed load'], np.where(ind), axis=0)
+
+        # Initialize list of states
+        state_list = list()
+
+        # Take preliminary snapshot of the system
+        prelim_state = self.evaluate_state(list(self.islands_evaluated.values()))
+        prelim_state['Title'] = 'Preliminary state'  # Shows up on plot
+        state_list.append(prelim_state)
+
+        # What islands do the buses reside on? First evaluate current state
+        bus_ind = self.current_state['bus voltage angle'][:, 0] == bus_id
+        island = int(self.current_state['bus voltage angle'][bus_ind, 2])
+
+        if island == -1:
+            print('Can not activate fixed load within blackout area!')
+            return []
+
+        # Set the load on the island bus matrix
+        island_bus_ind = (self.islands[self.island_map[island]]['bus'][:, 0] == bus_id).reshape(-1)
+        ideal_bus_ind = (self.ideal_case['bus'][:, 0] == bus_id).reshape(-1)
+        self.islands[self.island_map[island]]['bus'][island_bus_ind, 2:4] = self.ideal_case['bus'][ideal_bus_ind, 2:4]
+
+        # For visualization purposes, show that the load is reconnected
+        self.evaluate_islands()
+        connection_state = self.evaluate_state(list(self.islands_evaluated.values()))
+        connection_state['Title'] = 'Connecting fixed load on bus %s' % int(bus_id)
+        state_list.append(connection_state)
+
+        # Show final steady state
+        after_connection_state = deepcopy(connection_state)
+        after_connection_state['Title'] = 'State after load connection'
+        state_list.append(after_connection_state)
+
+        # Ensure that current state variable has the most recent information
+        self.current_state = state_list[-1]
+
+        # Feed the objective function state list.
+        return state_list
+
+    def action_dispatch_load(self, bus_id):
+        # Verify that action is available!
+        ind = self.action_list['dispatch load'] == bus_id
+        print(ind)
+        if np.sum(ind) != 1:
+            print('Dispatchable load not on action list!')
+            return
+
+        # Remove dispatchable load from the action list
+        self.action_list['dispatch load'] = np.delete(self.action_list['dispatch load'], np.where(ind), axis=0)
+
+        # Initialize list of states
+        state_list = list()
+
+        # Take preliminary snapshot of the system
+        prelim_state = self.evaluate_state(list(self.islands_evaluated.values()))
+        prelim_state['Title'] = 'Preliminary state'  # Shows up on plot
+        state_list.append(prelim_state)
+
+        # What islands does the bus reside on?
+        bus_ind = self.current_state['bus voltage angle'][:, 0] == bus_id
+        island = int(self.current_state['bus voltage angle'][bus_ind, 2])
+
+        if island == -1:
+            print('Can not activate dispatchable load within blackout area!')
+            return []
+
+        # Activate the dispatchable load
+        # I have to be careful to select the load (a generator may reside on the same bus)
+        load_ind = np.where(octave.isload(self.islands[self.island_map[island]]['gen']) == 1)[0]  # indicies of loads
+        bus_ind = np.where(self.islands[self.island_map[island]]['gen'][load_ind, 0] == bus_id)  # index to gen_ind
+        self.islands[self.island_map[island]]['gen'][load_ind[bus_ind], 7] = 1
+
+        # For visualization purposes, show that the load is reconnected
+        self.evaluate_islands()
+        connection_state = self.evaluate_state(list(self.islands_evaluated.values()))
+        connection_state['Title'] = 'Connecting dispatchable load on bus %s' % int(bus_id)
+        state_list.append(connection_state)
+
+        # Show final steady state
+        after_connection_state = deepcopy(connection_state)
+        after_connection_state['Title'] = 'State after dispatchable load connection'
+        state_list.append(after_connection_state)
+
+        # Ensure that current state variable has the most recent information
+        self.current_state = state_list[-1]
+
+        # Feed the objective function state list.
+        return state_list
 
     def action_gen(self, bus_id):
-        pass
+
+        # Verify that action is available!
+        ind = self.action_list['gen'] == bus_id
+        print(ind)
+        if np.sum(ind) != 1:
+            print('Load not on action list!')
+            return
+
+        # Remove generator from the action list
+        self.action_list['gen'] = np.delete(self.action_list['gen'], np.where(ind), axis=0)
+
+        # Initialize list of states
+        state_list = list()
+
+        # Take preliminary snapshot of the system
+        prelim_state = self.evaluate_state(list(self.islands_evaluated.values()))
+        prelim_state['Title'] = 'Preliminary state'  # Shows up on plot
+        state_list.append(prelim_state)
+
+        # What islands does the bus reside on?
+        bus_ind = self.current_state['bus voltage angle'][:, 0] == bus_id
+        island = int(self.current_state['bus voltage angle'][bus_ind, 2])
+
+        if island == -1:
+            print('Can not activate generator within blackout area!')
+            return []
+
+        # Activate the generator
+        # I have to be careful to select the generator (a dispatchable load may reside on the same bus)
+        gen_ind = np.where(octave.isload(self.islands[self.island_map[island]]['gen']) == 0)[0]  # indicies of generators
+        bus_ind = np.where(self.islands[self.island_map[island]]['gen'][gen_ind, 0] == bus_id)  # index to gen_ind
+        print(gen_ind)
+        print(bus_ind)
+        print(gen_ind[bus_ind])
+        self.islands[self.island_map[island]]['gen'][gen_ind[bus_ind], 7] = 1
+
+        # For visualization purposes, show that the generator is reconnected
+        self.evaluate_islands()
+        connection_state = self.evaluate_state(list(self.islands_evaluated.values()))
+        connection_state['Title'] = 'Connecting generator on bus %s' % int(bus_id)
+        state_list.append(connection_state)
+
+        # Show final steady state
+        after_connection_state = deepcopy(connection_state)
+        after_connection_state['Title'] = 'State after generator connection'
+        state_list.append(after_connection_state)
+
+        # Ensure that current state variable has the most recent information
+        self.current_state = state_list[-1]
+
+        # Feed the objective function state list.
+        return state_list
 
     @staticmethod
     def get_losses(case):

@@ -6,7 +6,7 @@ import numpy as np
 from oct2py import octave
 
 
-def visualize_state(ideal_case, ideal_state, state_list, fig_num=1):
+def visualize_state(ideal_case, ideal_state, state_list, fig_num=1, frames=20, save=False):
     color_map = {0: 'black',
                  1: 'green'}
     color_map_2 = {0: 'green',
@@ -108,14 +108,14 @@ def visualize_state(ideal_case, ideal_state, state_list, fig_num=1):
     spa_limit = mlines.Line2D([], [], color='black', label='SPA diff limit')
 
     ax1.legend(handles=[gen_limit_patch, gen_offline_patch, gen_ideal_patch, gen_current_patch], loc='upper left')
-    ax2.legend(handles=[load_ideal_patch, load_offline_patch, load_current_patch], loc='upper left')
+    ax2.legend(handles=[load_ideal_patch, load_offline_patch, load_current_patch], loc='upper right')
     ax3.legend(handles=[line_limit_patch, line_offline_patch, line_ideal_patch, line_current_patch], loc='upper left')
     ax4.legend(handles=[spa_green, spa_red, spa_limit], loc='upper left')
 
     def update(frame):
         # Manipulate frame
-        list_ind = int(np.floor(frame/20))
-        between_frame = frame % 20
+        list_ind = int(np.floor(frame/frames))
+        between_frame = frame % frames
 
         # Generator color
         gen_island = state_list[list_ind]['real gen'][cap_order, -1]
@@ -125,7 +125,7 @@ def visualize_state(ideal_case, ideal_state, state_list, fig_num=1):
         # Generator values
         gen_current_1 = state_list[list_ind]['real gen'][cap_order, 1].reshape((-1,))
         gen_current_2 = state_list[list_ind+1]['real gen'][cap_order, 1].reshape((-1,))
-        gen_current_3 = gen_current_1 + (gen_current_2-gen_current_1)*(between_frame/20)
+        gen_current_3 = gen_current_1 + (gen_current_2-gen_current_1)*(between_frame/frames)
         for rect, height in zip(gen_curr, gen_current_3):
             rect.set_height(height)
 
@@ -140,7 +140,7 @@ def visualize_state(ideal_case, ideal_state, state_list, fig_num=1):
         # Load values
         d_load_current_1 = -state_list[list_ind]['dispatch load'][d_load_order, 1].reshape((-1,))
         d_load_current_2 = -state_list[list_ind+1]['dispatch load'][d_load_order, 1].reshape((-1,))
-        d_load_current_3 = d_load_current_1 + (d_load_current_2-d_load_current_1)*(between_frame/20)
+        d_load_current_3 = d_load_current_1 + (d_load_current_2-d_load_current_1)*(between_frame/frames)
         f_load_current = state_list[list_ind]['fixed load'][f_load_order, 1].reshape((-1,))
         for rect, height in zip(d_curr, d_load_current_3):
             rect.set_height(height)
@@ -155,7 +155,7 @@ def visualize_state(ideal_case, ideal_state, state_list, fig_num=1):
         # Line values
         real_inj_current_1 = np.abs(state_list[list_ind]['real inj'][line_order, 2].reshape((-1,)))
         real_inj_current_2 = np.abs(state_list[list_ind+1]['real inj'][line_order, 2].reshape((-1,)))
-        real_inj_current_3 = real_inj_current_1 + (real_inj_current_2-real_inj_current_1)*(between_frame/20)
+        real_inj_current_3 = real_inj_current_1 + (real_inj_current_2-real_inj_current_1)*(between_frame/frames)
         for rect, height in zip(line_curr, real_inj_current_3):
             rect.set_height(height)
 
@@ -166,7 +166,7 @@ def visualize_state(ideal_case, ideal_state, state_list, fig_num=1):
         SPA_bus1_2 = [state_list[list_ind+1]['bus voltage angle'][state_list[list_ind+1]['bus voltage angle'][:, 0] == i, 1] for i in state_list[list_ind+1]['real inj'][line_order, 0]]
         SPA_bus2_2 = [state_list[list_ind+1]['bus voltage angle'][state_list[list_ind+1]['bus voltage angle'][:, 0] == i, 1] for i in state_list[list_ind+1]['real inj'][line_order, 1]]
         SPA_diff_2 = np.abs(np.array(SPA_bus1_2) - np.array(SPA_bus2_2))
-        SPA_diff_3 = SPA_diff_1 + (SPA_diff_2-SPA_diff_1)*(between_frame/20)
+        SPA_diff_3 = SPA_diff_1 + (SPA_diff_2-SPA_diff_1)*(between_frame/frames)
         for rect, height in zip(line_spa, SPA_diff_3):
             rect.set_height(height)
 
@@ -182,96 +182,10 @@ def visualize_state(ideal_case, ideal_state, state_list, fig_num=1):
 
         return gen_cap, gen_curr, d_ideal, f_ideal, d_curr, f_curr, line_ideal, line_rating, line_curr, line_spa
 
-
-
-
-
-    anim = animation.FuncAnimation(fig, update, frames=(len(state_list)-1)*20-1, interval=20)
+    animate = animation.FuncAnimation(fig, update, frames=(len(state_list)-1)*frames-1, interval=20)
     plt.show()
 
-    return anim
+    if save:
+        animate.save('Animate.gif', writer='imagemagick', dpi=40)
 
-    # def update(frame):
-    #
-    #     print(frame)
-    #
-    #     # Clear the last set of data
-    #     # for obj in dyn_objects:
-    #     #     obj.clear()
-    #
-    #     gen_current = state_list[frame]['real gen'][:, 1].reshape((-1,)) + 100
-    #     gen_island = state_list[frame]['real gen'][cap_order, -1]
-    #     dyn_objects[0].set_data(gen_x, gen_max[cap_order])
-    #     # dyn_objects[0].set_color([color_map[ind] for ind in gen_island])
-    #     dyn_objects[1].set_data(gen_x + gen_width / 2, gen_current[cap_order])
-
-        # dyn_objects[1], = ax1.bar(gen_x + gen_width / 2, gen_current[cap_order], gen_width, align='center', alpha=0.9,
-        #                           color='red')
-        #
-        # # Load state plot dynamic data
-        # d_load_current = -state_list[frame]['dispatch load'][:, 1].reshape((-1,))
-        # d_load_island = state_list[frame]['dispatch load'][d_load_order, -1]
-        # f_load_current = state_list[frame]['fixed load'][:, 1].reshape((-1,))
-        # f_load_island = state_list[frame]['fixed load'][f_load_order, -1]
-        # dyn_objects[2], = ax2.bar(load_x1, d_load_ideal[d_load_order], load_width, align='center', alpha=0.2,
-        #                           color=[color_map[ind] for ind in d_load_island])
-        # dyn_objects[3], = ax2.bar(load_x1, d_load_current[d_load_order], load_width, align='center', alpha=0.9,
-        #                           color=[color_map[ind] for ind in d_load_island])
-        # dyn_objects[4], = ax2.bar(load_x2, f_load_ideal[f_load_order], load_width, align='center', alpha=0.2,
-        #                           color=[color_map[ind] for ind in f_load_island])
-        # dyn_objects[5], = ax2.bar(load_x2, f_load_current[f_load_order], load_width, align='center', alpha=0.9,
-        #                           color=[color_map[ind] for ind in f_load_island])
-        #
-        # # Line state plot dynamic data
-        # real_inj_current = np.abs(state_list[frame]['real inj'][:, 2].reshape((-1,)))
-        # line_island = state_list[frame]['real inj'][line_order, -1]
-        # dyn_objects[6], = ax3.bar(line_x, mva_rating[line_order], line_width * 2, align='center', alpha=0.3,
-        #                           color=[color_map[ind] for ind in line_island])
-        # dyn_objects[7], = ax3.bar(line_x + line_width / 2, real_inj_current[line_order], line_width, align='center',
-        #                           alpha=0.9, color='red')
-
-        # Generator state plot dynamic data
-        # gen_current = state_list[frame]['real gen'][:, 1].reshape((-1,))
-        # gen_island = state_list[frame]['real gen'][cap_order, -1]
-        # dyn_objects[0], = ax1.bar(gen_x, gen_max[cap_order], gen_width * 2, align='center', alpha=0.3,
-        #                           color=[color_map[ind] for ind in gen_island])
-        # dyn_objects[1], = ax1.bar(gen_x + gen_width / 2, gen_current[cap_order], gen_width, align='center', alpha=0.9,
-        #                           color='red')
-        #
-        # # Load state plot dynamic data
-        # d_load_current = -state_list[frame]['dispatch load'][:, 1].reshape((-1,))
-        # d_load_island = state_list[frame]['dispatch load'][d_load_order, -1]
-        # f_load_current = state_list[frame]['fixed load'][:, 1].reshape((-1,))
-        # f_load_island = state_list[frame]['fixed load'][f_load_order, -1]
-        # dyn_objects[2], = ax2.bar(load_x1, d_load_ideal[d_load_order], load_width, align='center', alpha=0.2,
-        #                           color=[color_map[ind] for ind in d_load_island])
-        # dyn_objects[3], = ax2.bar(load_x1, d_load_current[d_load_order], load_width, align='center', alpha=0.9,
-        #                           color=[color_map[ind] for ind in d_load_island])
-        # dyn_objects[4], = ax2.bar(load_x2, f_load_ideal[f_load_order], load_width, align='center', alpha=0.2,
-        #                           color=[color_map[ind] for ind in f_load_island])
-        # dyn_objects[5], = ax2.bar(load_x2, f_load_current[f_load_order], load_width, align='center', alpha=0.9,
-        #                           color=[color_map[ind] for ind in f_load_island])
-        #
-        # # Line state plot dynamic data
-        # real_inj_current = np.abs(state_list[frame]['real inj'][:, 2].reshape((-1,)))
-        # line_island = state_list[frame]['real inj'][line_order, -1]
-        # dyn_objects[6], = ax3.bar(line_x, mva_rating[line_order], line_width * 2, align='center', alpha=0.3,
-        #                           color=[color_map[ind] for ind in line_island])
-        # dyn_objects[7], = ax3.bar(line_x + line_width / 2, real_inj_current[line_order], line_width, align='center',
-        #                           alpha=0.9, color='red')
-
-        # if state_list[frame]['Title']:
-        #     plt.suptitle(state_list[frame]['Title'], labelsize=18)
-        # else:
-        #     plt.suptitle('')
-
-        # return dyn_objects,
-
-    # print('Here')
-    #
-    # anim = animation.FuncAnimation(fig, update, frames=len(state_list), interval=1000)
-    # print('Here too')
-    #
-    # plt.show()
-    #
-    # print('Here three')
+    return animate

@@ -64,7 +64,7 @@ import numpy as np
 from oct2py import octave
 from auxiliary.config import mp_opt, \
     line_ratings, \
-    deconstruct_1, deconstruct_2, deconstruct_3, deconstruct_4
+    deconstruct_1, deconstruct_2, deconstruct_3, deconstruct_4, deconstruct_5, deconstruct_6
 from auxiliary.visualize_state import visualize_state
 from system.PowerSystem import PowerSystem
 
@@ -75,26 +75,30 @@ base_case = octave.loadcase('case14')
 base_case['branch'][:, 5] = line_ratings  # Have to add line ratings
 base_result = octave.runpf(base_case, mp_opt)
 
-ps = PowerSystem(base_result, deactivated=deconstruct_1, verbose=1, verbose_state=0)
+ps = PowerSystem(base_result, deactivated=deconstruct_5, verbose=0, verbose_state=0)
 ps.action_list
-# Why are these not the same???
-ps.islands['0']['branch'][:,13]
-ps.islands_evaluated['0']['branch'][:, 13]
 ps.islands.keys()
 
 states = []
 # states.append(ps.action_line([7, 8])[0])    # Blackout network
 # states.append(ps.action_line([10, 11])[0])  # Blackout network
-while len(ps.action_list['lines']) > 0:
-    for state in ps.action_line(ps.action_list['lines'][0]):
+while len(ps.action_list['line']) > 0:
+    for state in ps.action_line(ps.action_list['line'][0]):
+        states.append(state)
+while len(ps.action_list['fixed load']) > 0:
+    for state in ps.action_fixed_load(ps.action_list['fixed load'][0]):
+        states.append(state)
+while len(ps.action_list['gen']) > 0:
+    for state in ps.action_gen(ps.action_list['gen'][0]):
+        states.append(state)
+while len(ps.action_list['dispatch load']) > 0:
+    for state in ps.action_dispatch_load(ps.action_list['dispatch load'][0]):
         states.append(state)
 
 pp.pprint(ps.blackout_connections)
-anim = visualize_state(ps.ideal_case, ps.ideal_state, states)
-
+anim = visualize_state(ps.ideal_case, ps.ideal_state, states, frames=10, save=True)
 
 pp.pprint(ps.current_state)
-
 
 for i, island in enumerate(ps.islands):
     print('island %s: load %s' % (i, island['is_load']))
