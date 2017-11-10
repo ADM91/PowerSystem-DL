@@ -10,7 +10,7 @@
 
 # TODO: Set generator status to 0 if it is in blackout area
 
-# ---------Old Concerns------------
+# ---------Old/Fixed Concerns------------
 
 # If a blackout island is connected to functioning island, I have problems.  Opf doesn't converge (at least
 # last time i tried).  Also, generators that were cut off (not a part of any island) do not appear back in the
@@ -23,24 +23,26 @@
 # data matrix are a part of the current island.
 # -Fixed-
 
+# When a fixed load is associated with a bus, the load is automatically attached when the bus
+# is re-introduced to the network.  I want to save this action as another action...
+# -Fixed-
+
+# A dispatchable load that is lost between islands is not recovered when that bus is recovered by the system.
+# these loads are defined as generators, so the same must be true for generators.  I need a way of tracking the
+# "left over" generators and loads. -- Next on the list
+# -Fixed-
+
+# The solution to the load problems is creating a load tracking variable that is acted upon in the
+# load action function.  The function basically will remove the load from the action list, if the load
+# is in a blackout area, have it immediately enacted when the bus is re-energized.  This might be
+# a bit messy code-wise, but will have to due for now.
+# -Fixed-
 
 # ---------Current Concerns------------
 
 # If conditions are too extreme (Too many lines removed etc.) I get crazy spa diffs
 # and the spa constraint is not effective in reducing them.  There must be some
 # convergence issues that are not detected.
-
-# When a fixed load is associated with a bus, the load is automatically attached when the bus
-# is re-introduced to the network.  I want to save this action as another action...
-
-# A dispatchable load that is lost between islands is not recovered when that bus is recovered by the system.
-# these loads are defined as generators, so the same must be true for generators.  I need a way of tracking the
-# "left over" generators and loads. -- Next on the list
-
-# The solution to the load problems is creating a load tracking variable that is acted upon in the
-# load action function.  The function basically will remove the load from the action list, if the load
-# is in a blackout area, have it immediately enacted when the bus is re-energized.  This might be
-# a bit messy code-wise, but will have to due for now.
 
 # Re-solving for a steady state after line reconnection might not be the
 # right way to approach the problem.  I might be just moving back to a less
@@ -57,7 +59,10 @@
 # bus would no longer be in a blackout area after the first line is connected...
 # Im not sure what is going on.)
 
-# ---------Testing code------------
+# Should I give dispatchable loads ramp rates and evaluate their ramp time for the
+# objective function? Currently its assumed that they change instantaneously.
+
+# ---------Testing------------
 
 from pprint import PrettyPrinter
 import numpy as np
@@ -67,6 +72,8 @@ from auxiliary.config import mp_opt, \
     deconstruct_1, deconstruct_2, deconstruct_3, deconstruct_4, deconstruct_5, deconstruct_6
 from auxiliary.visualize_state import visualize_state
 from system.PowerSystem import PowerSystem
+from cost.objective_function import objective_function
+
 
 pp = PrettyPrinter(indent=4)
 np.set_printoptions(precision=2)
@@ -75,10 +82,10 @@ base_case = octave.loadcase('case14')
 base_case['branch'][:, 5] = line_ratings  # Have to add line ratings
 base_result = octave.runpf(base_case, mp_opt)
 
+# Instantiate the PowerSystem class
 ps = PowerSystem(base_result, deactivated=deconstruct_5, verbose=0, verbose_state=0)
-ps.action_list
-ps.islands.keys()
 
+# Perform all required restoration actions on network
 states = []
 # states.append(ps.action_line([7, 8])[0])    # Blackout network
 # states.append(ps.action_line([10, 11])[0])  # Blackout network
@@ -96,43 +103,7 @@ while len(ps.action_list['dispatch load']) > 0:
         states.append(state)
 
 pp.pprint(ps.blackout_connections)
-anim = visualize_state(ps.ideal_case, ps.ideal_state, states, frames=10, save=True)
-
-pp.pprint(ps.current_state)
-
-for i, island in enumerate(ps.islands):
-    print('island %s: load %s' % (i, island['is_load']))
-    print('island %s: gen %s' % (i, island['is_gen']))
+anim = visualize_state(ps.ideal_case, ps.ideal_state, states, frames=10, save=False)
 
 
-dis_el = ps.disconnected_elements
-
-ps.current_state['losses']
-
-# Reconnect a line
-# ps.action_line(dis_el['lines'][0])
-
-from matplotlib import pyplot as plt
-plt.ion()
-count = 1
-for line in dis_el['lines']:
-
-    print(dis_el)
-    ps.action_line(line)
-
-    # Evaluate islands
-    ps.evaluate_islands()
-
-    # Get system state
-    ps.current_state = ps.evaluate_state(ps.islands_evaluated)
-
-    ps.current_state['losses']
-
-    # Plot the state
-    ps.visualize_state(fig_num=count)
-
-    count += 1
-
-    input("Press Enter to continue...")
-
-# -----------------
+[time, energy, cost] = objective_function(states[0:2], ps.ideal_state)

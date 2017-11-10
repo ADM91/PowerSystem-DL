@@ -36,6 +36,11 @@ line_ratings = line_ratings + 50
 # Ones indicate buses w/ dispatchable loads
 dispatchable_loads = np.array([0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1])
 
+# Load cost ($/MWh)
+dispatch_load_cost = np.array([1, 1.5, 2, 1.3]).reshape((-1, 1))
+fixed_load_cost = np.array([1, 1.1, 1.2, 1.5, 1.5, 1.5, 1.3]).reshape((-1, 1))
+loss_cost = 1
+disp_dev_cost = 0.5
 
 # Deconstructed cases
 # ---------------Deconstruction 1-----------------
