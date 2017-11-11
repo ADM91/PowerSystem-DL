@@ -62,6 +62,13 @@
 # Should I give dispatchable loads ramp rates and evaluate their ramp time for the
 # objective function? Currently its assumed that they change instantaneously.
 
+# Need to implement fail-safes to prevent enabling a load or generator within a
+# blackout area... for restorations that violate rules, implement a function to
+# delay the violating action and rerun (feasibility preserving function)
+
+# Restoration takes about 5 seconds on 14 bus system... this is too slow
+
+
 # ---------Testing------------
 
 from pprint import PrettyPrinter
@@ -69,10 +76,19 @@ import numpy as np
 from oct2py import octave
 from auxiliary.config import mp_opt, \
     line_ratings, \
-    deconstruct_1, deconstruct_2, deconstruct_3, deconstruct_4, deconstruct_5, deconstruct_6
-from auxiliary.visualize_state import visualize_state
-from system.PowerSystem import PowerSystem
+    deconstruct_1,\
+    deconstruct_2,\
+    deconstruct_3,\
+    deconstruct_4,\
+    deconstruct_5,\
+    deconstruct_6
 from cost.objective_function import objective_function
+from optimize.execute_sequence import execute_sequence
+from optimize.sequence_decoder import decode_sequence
+from system.PowerSystem import PowerSystem
+from visualize.visualize_state import visualize_state
+from visualize.visualize_cost import visualize_cost
+import time
 
 
 pp = PrettyPrinter(indent=4)
@@ -82,28 +98,50 @@ base_case = octave.loadcase('case14')
 base_case['branch'][:, 5] = line_ratings  # Have to add line ratings
 base_result = octave.runpf(base_case, mp_opt)
 
-# Instantiate the PowerSystem class
-ps = PowerSystem(base_result, deactivated=deconstruct_5, verbose=0, verbose_state=0)
+states_store = []
+time_store = []
+energy_store = []
+cost_store = []
+sequence_store = []
 
-# Perform all required restoration actions on network
-states = []
-# states.append(ps.action_line([7, 8])[0])    # Blackout network
-# states.append(ps.action_line([10, 11])[0])  # Blackout network
-while len(ps.action_list['line']) > 0:
-    for state in ps.action_line(ps.action_list['line'][0]):
-        states.append(state)
-while len(ps.action_list['fixed load']) > 0:
-    for state in ps.action_fixed_load(ps.action_list['fixed load'][0]):
-        states.append(state)
-while len(ps.action_list['gen']) > 0:
-    for state in ps.action_gen(ps.action_list['gen'][0]):
-        states.append(state)
-while len(ps.action_list['dispatch load']) > 0:
-    for state in ps.action_dispatch_load(ps.action_list['dispatch load'][0]):
-        states.append(state)
-
-pp.pprint(ps.blackout_connections)
-anim = visualize_state(ps.ideal_case, ps.ideal_state, states, frames=10, save=False)
+import cProfile
+import re
 
 
-[time, energy, cost] = objective_function(states[0:2], ps.ideal_state)
+# Run random action permutations
+for i in range(10):
+    start_time = time.time()
+
+    # Instantiate the PowerSystem class
+    ps = PowerSystem(base_result, deactivated=deconstruct_1, verbose=0, verbose_state=0)
+
+    # Random sequence permutation
+    n_actions = int(np.sum([len(item) for item in ps.action_list.values()]))
+    sequence = np.random.permutation(n_actions)
+    action_sequence = decode_sequence(ps.action_list, sequence)
+
+    # Sequence execution
+    # cProfile.run('re.compile("execute_sequence(ps, action_sequence)")')
+    states = execute_sequence(ps, action_sequence)
+
+    # Sequence evaluation
+    [restore_time, energy, cost] = objective_function(states, ps.ideal_state)
+
+    # Visualize restoration
+    # animation = visualize_state(ps.ideal_case, ps.ideal_state, states, fig_num=1, frames=10, save=False)
+    visualize_cost(restore_time, cost, fig_num=i)
+
+    states_store.append(states)
+    time_store.append(restore_time)
+    energy_store.append(energy)
+    cost_store.append(cost)
+    sequence_store.append(action_sequence)
+
+    print("--- %s seconds ---" % (time.time() - start_time))
+    print('Iteration: %s' % i)
+    print('Cost of restoration: %.1f\n' % cost['combined total'])
+
+
+animate = visualize_state(ps.ideal_case, ps.ideal_state, states_store[1], fig_num=10, frames=10, save=False)
+
+

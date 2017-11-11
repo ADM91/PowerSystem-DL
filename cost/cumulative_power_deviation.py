@@ -13,17 +13,20 @@ def cumulative_power_deviation(base_dispatch, state_1, state_2, ramp_time):
     :return: Cumulative energy deviated from the base schedule (MW*minute)
     """
 
+    # Base dispatch
+    base_dispatch = base_dispatch.reshape((-1, 1))
+
     # Initial dispatch
-    initial = state_1['real gen'][:, 1]
+    initial = state_1['real gen'][:, 1].reshape((-1, 1))
 
     # Final dispatch
-    final = state_2['real gen'][:, 1]
+    final = state_2['real gen'][:, 1].reshape((-1, 1))
 
     # Calculate sum of dispatch deviation
     # need to find if the base straddles the initial and final states
-    mi = np.minimum(initial, final)
-    ma = np.maximum(initial, final)
-    si = np.logical_and(base_dispatch > mi, base_dispatch < ma)  # straddle index array (si)
+    mi = np.min([initial, final], axis=0)
+    ma = np.max([initial, final], axis=0)
+    si = np.logical_and(base_dispatch > mi, base_dispatch < ma).reshape((-1, 1))  # straddle index array (si)
 
     # Length (min) of triangles straddling the base
     w1 = ramp_time/(1 + np.abs(base_dispatch[si]-ma[si])/np.abs(base_dispatch[si]-mi[si]))

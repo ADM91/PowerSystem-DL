@@ -168,10 +168,10 @@ class PowerSystem(object):
             if island['is_gen'] and island['is_load']:
                 # Evaluate the energized island with opf constraints
                 gencost = deepcopy(island['gencost'])
-                print(island['gen'][:, [0,1,2,7]])
-                print(island['gencost'])
-                print(island['branch'][:, [0,1,10]])
-                print(island['bus'][:,[0,1]])
+                # print(island['gen'][:, [0,1,2,7]])
+                # print(island['gencost'])
+                # print(island['branch'][:, [0,1,10]])
+                # print(island['bus'][:,[0,1]])
                 result = octave.runopf(island, mp_opt)
                 result = self.get_losses(result)
                 result['gencost'] = gencost
@@ -222,8 +222,6 @@ class PowerSystem(object):
                 for bus_id in island['gen'][gen_ind, 0]:
                     ind1 = (state['real gen'][:, 0] == bus_id).reshape((-1,))
                     ind2 = (island['gen'][gen_ind, 0] == bus_id).reshape((-1,))
-                    print(ind1)
-                    print(ind2)
                     state['real gen'][ind1, 1] = island['gen'][gen_ind, 1][ind2]
                     state['real gen'][ind1, 2] = island['id']
                     state['real gen'][ind1, 3] = island['gen'][gen_ind, 7][ind2]  # Gen status
@@ -533,7 +531,7 @@ class PowerSystem(object):
             return
 
         # Remove line from the action list
-        self.action_list['line'] = np.delete(self.action_list['line'], np.where(ind), axis=0)
+        # self.action_list['line'] = np.delete(self.action_list['line'], np.where(ind), axis=0)
 
         # Initialize list of states
         state_list = list()
@@ -585,13 +583,12 @@ class PowerSystem(object):
 
         # Verify that action is available!
         ind = self.action_list['fixed load'] == bus_id
-        print(ind)
         if np.sum(ind) != 1:
             print('Load not on action list!')
             return
 
         # Remove line from the action list
-        self.action_list['fixed load'] = np.delete(self.action_list['fixed load'], np.where(ind), axis=0)
+        # self.action_list['fixed load'] = np.delete(self.action_list['fixed load'], np.where(ind), axis=0)
 
         # Initialize list of states
         state_list = list()
@@ -634,13 +631,12 @@ class PowerSystem(object):
     def action_dispatch_load(self, bus_id):
         # Verify that action is available!
         ind = self.action_list['dispatch load'] == bus_id
-        print(ind)
         if np.sum(ind) != 1:
             print('Dispatchable load not on action list!')
             return
 
         # Remove dispatchable load from the action list
-        self.action_list['dispatch load'] = np.delete(self.action_list['dispatch load'], np.where(ind), axis=0)
+        # self.action_list['dispatch load'] = np.delete(self.action_list['dispatch load'], np.where(ind), axis=0)
 
         # Initialize list of states
         state_list = list()
@@ -685,13 +681,12 @@ class PowerSystem(object):
 
         # Verify that action is available!
         ind = self.action_list['gen'] == bus_id
-        print(ind)
         if np.sum(ind) != 1:
             print('Load not on action list!')
             return
 
         # Remove generator from the action list
-        self.action_list['gen'] = np.delete(self.action_list['gen'], np.where(ind), axis=0)
+        # self.action_list['gen'] = np.delete(self.action_list['gen'], np.where(ind), axis=0)
 
         # Initialize list of states
         state_list = list()
@@ -713,9 +708,6 @@ class PowerSystem(object):
         # I have to be careful to select the generator (a dispatchable load may reside on the same bus)
         gen_ind = np.where(octave.isload(self.islands[self.island_map[island]]['gen']) == 0)[0]  # indicies of generators
         bus_ind = np.where(self.islands[self.island_map[island]]['gen'][gen_ind, 0] == bus_id)  # index to gen_ind
-        print(gen_ind)
-        print(bus_ind)
-        print(gen_ind[bus_ind])
         self.islands[self.island_map[island]]['gen'][gen_ind[bus_ind], 7] = 1
 
         # For visualization purposes, show that the generator is reconnected

@@ -64,8 +64,6 @@ def between_blackout_energized(ps, island_1, island_2, bus_ids):
             gen[:, 7] = 0  # Leave out of service, activating the generator/load is a separate action
             gen = np.append(gen, np.zeros((np.sum(gen_ind), 4)), axis=1)
 
-            print(gen)
-            print(gencost)
             ps.islands[ps.island_map[energ_island]]['gen'] = np.append(ps.islands[ps.island_map[energ_island]]['gen'],
                                                                        gen,
                                                                        axis=0)
