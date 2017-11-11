@@ -4,7 +4,7 @@ def execute_sequence(ps_obj, action_sequence):
 
     # Perform actions according to sequence
     states = []
-    for action in action_sequence:
+    for i, action in enumerate(action_sequence):
         action_type = action[0]
         index = action[1]
 
@@ -15,7 +15,7 @@ def execute_sequence(ps_obj, action_sequence):
                     states.append(state)
             else:
                 print('Line restoration failure: exiting')
-                return []
+                return ['fail', i]
 
         elif action_type == 'gen':
             output = ps_obj.action_gen(ps_obj.action_list['gen'][index])
@@ -24,7 +24,7 @@ def execute_sequence(ps_obj, action_sequence):
                     states.append(state)
             else:
                 print('Generator restoration failure: exiting')
-                return []
+                return ['fail', i]
 
         elif action_type == 'fixed load':
             output = ps_obj.action_fixed_load(ps_obj.action_list['fixed load'][index])
@@ -33,7 +33,7 @@ def execute_sequence(ps_obj, action_sequence):
                     states.append(state)
             else:
                 print('Fixed load restoration failure: exiting')
-                return []
+                return ['fail', i]
 
         elif action_type == 'dispatch load':
             output = ps_obj.action_dispatch_load(ps_obj.action_list['dispatch load'][index])
@@ -42,7 +42,7 @@ def execute_sequence(ps_obj, action_sequence):
                     states.append(state)
             else:
                 print('Dispatch load restoration failure: exiting')
-                return []
+                return ['fail', i]
 
         else:
             print('Error: action (%s) does not exist' % action[0])

@@ -16,4 +16,4 @@ def visualize_cost(time, cost, fig_num=1):
     plt.plot(t, y2, 'r-')
     plt.plot(t, y3, 'g-')
     plt.xlabel('time (min)')
-    plt.ylabel('cumulative cost')
+    plt.ylabel('cumulative objective')

@@ -64,7 +64,34 @@ class PowerSystem(object):
         else:
             self.broken_case = self.indexed_deactivate()
 
-        # # Detect and isolate islands, identify blackout zone
+        # Detect and isolate islands, identify blackout zone
+        self.islands = dict()
+        self.get_islands(self.broken_case)
+
+        # Islands evaluated
+        self.islands_evaluated = dict()
+        self.evaluate_islands()
+
+        # Get current state
+        self.current_state = self.evaluate_state(list(self.islands_evaluated.values()))
+
+        # Identify the disconnected system elements - uses the current state variable and islands
+        self.action_list = dict()
+        self.generate_action_list()
+
+        # Initialize blackout connection list (list within a list)
+        self.blackout_connections = {'buses': [],
+                                     'lines': []}
+
+    def reset(self):
+
+        # Deconstruct the ideal case
+        if type(self.deactivated) == int:
+            self.broken_case = self.random_deactivate()
+        else:
+            self.broken_case = self.indexed_deactivate()
+
+        # Detect and isolate islands, identify blackout zone
         self.islands = dict()
         self.get_islands(self.broken_case)
 

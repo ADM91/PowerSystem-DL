@@ -10,7 +10,7 @@ def reshape_gencost(gencost):
     if type(gencost) == list:
         return np.array([])
 
-    # Reshape the gencost matrix to allow piecewise linear cost function
+    # Reshape the gencost matrix to allow piecewise linear objective function
     elif gencost.shape[1] != 9:
         gencost = gencost[:, 0:4]  # Cut off the unnecessary bullshit
         return np.append(gencost, np.zeros((np.shape(gencost)[0], 6)), axis=1)
@@ -47,7 +47,7 @@ def set_opf_constraints(test_case, set_branch=(), max_SPA=365, set_gen=True, set
         # Set dispatchable loads in the bus matrix to zero
         test_case_opf['bus'][dispatchable_loads == 1, 2:4] = 0
 
-        # Reshape the gencost matrix so that we can add up to 3 points in piecewise cost function
+        # Reshape the gencost matrix so that we can add up to 3 points in piecewise objective function
         test_case_opf['gencost'] = reshape_gencost(test_case_opf['gencost'])
 
         # Represent dispatchable loads as negative generators!
@@ -85,7 +85,7 @@ def set_opf_constraints(test_case, set_branch=(), max_SPA=365, set_gen=True, set
                 test_case_opf['gencost'][-1, 3] = 2
 
     if set_gen:
-        # Set cost function of each non-load generator as "V" function around scheduled set point
+        # Set objective function of each non-load generator as "V" function around scheduled set point
         # s = test_case_opf['gencost'].shape
         # test_case_opf['gencost'] = np.resize(test_case_opf['gencost'], (s[0], 10))
 
@@ -112,12 +112,12 @@ def set_opf_constraints(test_case, set_branch=(), max_SPA=365, set_gen=True, set
                 if set_point > 0:
                     # Number of vertices of piecewise model
                     gen[3] = 3
-                    # Set "V" cost function around the scheduled set-point.
+                    # Set "V" objective function around the scheduled set-point.
                     gen[4:] = [0, set_point, set_point, 0, max_active, max_active - set_point]
                 else:
                     # Number of vertices of piecewise model
                     gen[3] = 2
-                    # Set "V" cost function around the scheduled set-point.
+                    # Set "V" objective function around the scheduled set-point.
                     gen[4:] = [0, 0, max_active, max_active, 0, 0]
             else:
                 continue

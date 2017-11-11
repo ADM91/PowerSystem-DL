@@ -6,7 +6,7 @@
 # TODO: Implement more error handling, what if something doesnt converge?
 
 # TODO: if there is opf convergence failure, set island to blackout... maybe
-# TODO: to study effect of changing load shedding cost use matpower function modcost
+# TODO: to study effect of changing load shedding objective use matpower function modcost
 
 # TODO: Set generator status to 0 if it is in blackout area
 
@@ -82,9 +82,10 @@ from auxiliary.config import mp_opt, \
     deconstruct_4,\
     deconstruct_5,\
     deconstruct_6
-from cost.objective_function import objective_function
+from objective.objective_function import objective_function
 from optimize.execute_sequence import execute_sequence
 from optimize.sequence_decoder import decode_sequence
+from optimize.delay_faulty_action import delay_faulty_action
 from system.PowerSystem import PowerSystem
 from visualize.visualize_state import visualize_state
 from visualize.visualize_cost import visualize_cost
@@ -104,44 +105,67 @@ energy_store = []
 cost_store = []
 sequence_store = []
 
-import cProfile
-import re
+best_total_cost = [9999999]
 
+# Instantiate class and get initial sequence permutation
+ps = PowerSystem(base_result, deactivated=deconstruct_6, verbose=0, verbose_state=0)
+n_actions = int(np.sum([len(item) for item in ps.action_list.values()]))
+best_sequence = np.random.permutation(n_actions)
 
 # Run random action permutations
-for i in range(10):
+iteration = 100
+for i in range(iteration):
     start_time = time.time()
 
-    # Instantiate the PowerSystem class
-    ps = PowerSystem(base_result, deactivated=deconstruct_1, verbose=0, verbose_state=0)
-
-    # Random sequence permutation
-    n_actions = int(np.sum([len(item) for item in ps.action_list.values()]))
-    sequence = np.random.permutation(n_actions)
-    action_sequence = decode_sequence(ps.action_list, sequence)
+    # Random sequence permutation (permutation rate changes with iteration)
+    [a, b, c, d, e, f] = np.random.choice(n_actions, size=4, replace=False)
+    test_sequence = best_sequence
+    test_sequence[a], test_sequence[b] = test_sequence[b], test_sequence[a]
+    if i < int((2/3)*iteration):
+        test_sequence[c], test_sequence[d] = test_sequence[d], test_sequence[c]
+    if i < int((1/3)*iteration):
+        test_sequence[e], test_sequence[f] = test_sequence[f], test_sequence[e]
+    action_sequence = decode_sequence(ps.action_list, test_sequence)
 
     # Sequence execution
-    # cProfile.run('re.compile("execute_sequence(ps, action_sequence)")')
-    states = execute_sequence(ps, action_sequence)
+    count = 0
+    success = 0
+    while count < 5:
+        ps.reset()
+        states = execute_sequence(ps, action_sequence)
+        if states[0] == 'fail':
+            test_sequence = delay_faulty_action(test_sequence, states[1])
+            action_sequence = decode_sequence(ps.action_list, test_sequence)
+            print('--- Fail ----')
+        else:
+            print('--- Success ----')
+            success = 1
+            break
+        count += 1
+
+    t1 = time.time() - start_time
 
     # Sequence evaluation
-    [restore_time, energy, cost] = objective_function(states, ps.ideal_state)
+    if success:
+        [restore_time, energy, cost] = objective_function(states, ps.ideal_state)
 
-    # Visualize restoration
-    # animation = visualize_state(ps.ideal_case, ps.ideal_state, states, fig_num=1, frames=10, save=False)
-    visualize_cost(restore_time, cost, fig_num=i)
+        if cost['combined total'] < best_total_cost[-1]:
+            states_store.append(states)
+            time_store.append(restore_time)
+            energy_store.append(energy)
+            cost_store.append(cost)
+            sequence_store.append(action_sequence)
+            best_total_cost.append(cost['combined total'])
+            best_sequence = test_sequence
+        else:
+            best_total_cost.append(best_total_cost[-1])
 
-    states_store.append(states)
-    time_store.append(restore_time)
-    energy_store.append(energy)
-    cost_store.append(cost)
-    sequence_store.append(action_sequence)
-
-    print("--- %s seconds ---" % (time.time() - start_time))
-    print('Iteration: %s' % i)
-    print('Cost of restoration: %.1f\n' % cost['combined total'])
+        print("--- %s ---" % t1)
+        print('Iteration: %s' % i)
+        print('Cost of restoration: %.1f' % cost['combined total'])
+        print('Lowest cost thus far: %.1f\n\n' % best_total_cost[-1])
+    else:
+        print('--- I gave up, moving on ----\n\n')
 
 
-animate = visualize_state(ps.ideal_case, ps.ideal_state, states_store[1], fig_num=10, frames=10, save=False)
-
-
+animate = visualize_state(ps.ideal_case, ps.ideal_state, states_store[-1], fig_num=10, frames=10, save=False)

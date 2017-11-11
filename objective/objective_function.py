@@ -1,9 +1,9 @@
 import numpy as np
 from auxiliary.config import case14_ramp_rates, dispatch_load_cost, fixed_load_cost, loss_cost, disp_dev_cost
-from cost.cumulative_losses import cumulative_losses
-from cost.cumulative_power_deviation import cumulative_power_deviation
-from cost.cumulative_lost_load import cumulative_lost_load
-from cost.ramp_time import ramp_time
+from objective.cumulative_losses import cumulative_losses
+from objective.cumulative_power_deviation import cumulative_power_deviation
+from objective.cumulative_lost_load import cumulative_lost_load
+from objective.ramp_time import ramp_time
 
 
 def objective_function(state_list, ideal_state):
@@ -43,7 +43,7 @@ def objective_function(state_list, ideal_state):
         energy_store['losses'].append(losses)
         energy_store['dispatch deviation'].append(dispatch_dev)
 
-        # Calculate and store cost of lost energy
+        # Calculate and store objective of lost energy
         cost_a = np.sum(lost_d_load*dispatch_load_cost) + np.sum(lost_f_load*fixed_load_cost)
         cost_b = losses*loss_cost
         cost_c = dispatch_dev*disp_dev_cost
