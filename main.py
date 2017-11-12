@@ -71,7 +71,6 @@
 
 # ---------Testing------------
 
-from pprint import PrettyPrinter
 import numpy as np
 from oct2py import octave
 from auxiliary.config import mp_opt, \
@@ -82,90 +81,28 @@ from auxiliary.config import mp_opt, \
     deconstruct_4,\
     deconstruct_5,\
     deconstruct_6
-from objective.objective_function import objective_function
-from optimize.execute_sequence import execute_sequence
-from optimize.sequence_decoder import decode_sequence
-from optimize.delay_faulty_action import delay_faulty_action
 from system.PowerSystem import PowerSystem
-from visualize.visualize_state import visualize_state
-from visualize.visualize_cost import visualize_cost
-import time
+from optimize.random_search_opt import random_search_opt
 
 
-pp = PrettyPrinter(indent=4)
 np.set_printoptions(precision=2)
 
+# Evaluate base case power system
 base_case = octave.loadcase('case14')
 base_case['branch'][:, 5] = line_ratings  # Have to add line ratings
 base_result = octave.runpf(base_case, mp_opt)
 
-states_store = []
-time_store = []
-energy_store = []
-cost_store = []
-sequence_store = []
+# Instantiate PowerSystem class
+ps = PowerSystem(base_result,
+                 deactivated=deconstruct_1,
+                 verbose=0,
+                 verbose_state=0)
 
-best_total_cost = [9999999]
+# Perform random search optimization
+output = random_search_opt(ps,
+                           opt_iteration=30,
+                           res_iteration=50,
+                           verbose=1,
+                           save_data=1,
+                           folder='Rand-search-opt-2')
 
-# Instantiate class and get initial sequence permutation
-ps = PowerSystem(base_result, deactivated=deconstruct_6, verbose=0, verbose_state=0)
-n_actions = int(np.sum([len(item) for item in ps.action_list.values()]))
-best_sequence = np.random.permutation(n_actions)
-
-# Run random action permutations
-iteration = 100
-for i in range(iteration):
-    start_time = time.time()
-
-    # Random sequence permutation (permutation rate changes with iteration)
-    [a, b, c, d, e, f] = np.random.choice(n_actions, size=4, replace=False)
-    test_sequence = best_sequence
-    test_sequence[a], test_sequence[b] = test_sequence[b], test_sequence[a]
-    if i < int((2/3)*iteration):
-        test_sequence[c], test_sequence[d] = test_sequence[d], test_sequence[c]
-    if i < int((1/3)*iteration):
-        test_sequence[e], test_sequence[f] = test_sequence[f], test_sequence[e]
-    action_sequence = decode_sequence(ps.action_list, test_sequence)
-
-    # Sequence execution
-    count = 0
-    success = 0
-    while count < 5:
-        ps.reset()
-        states = execute_sequence(ps, action_sequence)
-        if states[0] == 'fail':
-            test_sequence = delay_faulty_action(test_sequence, states[1])
-            action_sequence = decode_sequence(ps.action_list, test_sequence)
-            print('--- Fail ----')
-        else:
-            print('--- Success ----')
-            success = 1
-            break
-        count += 1
-
-    t1 = time.time() - start_time
-
-    # Sequence evaluation
-    if success:
-        [restore_time, energy, cost] = objective_function(states, ps.ideal_state)
-
-        if cost['combined total'] < best_total_cost[-1]:
-            states_store.append(states)
-            time_store.append(restore_time)
-            energy_store.append(energy)
-            cost_store.append(cost)
-            sequence_store.append(action_sequence)
-            best_total_cost.append(cost['combined total'])
-            best_sequence = test_sequence
-        else:
-            best_total_cost.append(best_total_cost[-1])
-
-        print("--- %s ---" % t1)
-        print('Iteration: %s' % i)
-        print('Cost of restoration: %.1f' % cost['combined total'])
-        print('Lowest cost thus far: %.1f\n\n' % best_total_cost[-1])
-    else:
-        print('--- I gave up, moving on ----\n\n')
-
-
-animate = visualize_state(ps.ideal_case, ps.ideal_state, states_store[-1], fig_num=10, frames=10, save=False)

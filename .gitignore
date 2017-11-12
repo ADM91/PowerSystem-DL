@@ -1,5 +1,7 @@
 
-
+*Animate.*
 *.xml
 .idea/PowerSystem-RL.iml
 octave-workspace
+data/
+figures/
