@@ -83,7 +83,7 @@ from auxiliary.config import mp_opt, \
     deconstruct_6
 from system.PowerSystem import PowerSystem
 from optimize.random_search_opt import random_search_opt
-
+from visualize.visualize_cost_opt import visualize_cost_opt
 
 np.set_printoptions(precision=2)
 
@@ -94,7 +94,7 @@ base_result = octave.runpf(base_case, mp_opt)
 
 # Instantiate PowerSystem class
 ps = PowerSystem(base_result,
-                 deactivated=deconstruct_1,
+                 deactivated=deconstruct_3,
                  verbose=0,
                  verbose_state=0)
 
@@ -104,5 +104,6 @@ output = random_search_opt(ps,
                            res_iteration=50,
                            verbose=1,
                            save_data=1,
-                           folder='Rand-search-opt-2')
+                           folder='Rand-search-d3')
 
+visualize_cost_opt('Rand-search-d3', title='Random search: Case 3', fig_num=1)
