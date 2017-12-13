@@ -8,7 +8,6 @@ from auxiliary.open_path import safe_open_w
 import time
 
 
-
 def random_search_opt(ps, opt_iteration, res_iteration, verbose=1, save_data=0, folder='test'):
 
     for i in range(opt_iteration):

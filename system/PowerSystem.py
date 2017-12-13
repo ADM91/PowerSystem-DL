@@ -84,6 +84,7 @@ class PowerSystem(object):
                                      'lines': []}
 
     def reset(self):
+        """Rests the class to its original degraded state"""
 
         # Deconstruct the ideal case
         if type(self.deactivated) == int:
@@ -109,6 +110,24 @@ class PowerSystem(object):
         # Initialize blackout connection list (list within a list)
         self.blackout_connections = {'buses': [],
                                      'lines': []}
+
+    def revert(self, islands, state, blackout_conn):
+        """ Restores the system using previous islands, state, and blackout connection variables"""
+
+        self.islands = islands
+
+        # Islands evaluated
+        self.islands_evaluated = dict()
+        self.evaluate_islands()
+
+        # Get current state
+        self.current_state = state
+
+        # Identify the disconnected system elements - uses the current state variable and islands
+        self.action_list = dict()
+        self.generate_action_list()
+
+        self.blackout_connections = blackout_conn
 
     def generate_action_list(self):
 

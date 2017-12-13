@@ -91,6 +91,15 @@ deconstruct_6 = np.array([True, False, True, True,
                           False, False, False, False,
                           False, False, False, False])
 
+
+# ---------------Deconstruction 7-----------------
+# have doable action list
+deconstruct_7 = np.array([False, False, False, True,
+                          False, False, True, False,
+                          False, True, False, True,
+                          False, True, True, True,
+                          False, False, False, True])
+
 # Lines:
 #       [[  1.,   2.],
 #        [  1.,   5.],
