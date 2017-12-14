@@ -124,8 +124,8 @@ class PowerSystem(object):
         self.current_state = state
 
         # Identify the disconnected system elements - uses the current state variable and islands
-        self.action_list = dict()
-        self.generate_action_list()
+        # self.action_list = dict()
+        # self.generate_action_list()
 
         self.blackout_connections = blackout_conn
 
@@ -598,11 +598,13 @@ class PowerSystem(object):
                 print('Case: within energized island')
             state_list = within_energized(self, island_1, bus_ids)
 
+        # Deprecating the within_blackout function, its not practical to connect lines within blackout
         elif island_1 == island_2 and island_1 == -1:
             # Don't need to create a state list in this case, just record whats connected!
             if self.verbose:
                 print('Case: within blackout area')
-            state_list = within_blackout(self, bus_ids)
+            # state_list = within_blackout(self, bus_ids)
+            return []
 
         elif island_1 != island_2 and (island_1 != -1 and island_2 != -1):
             if self.verbose:

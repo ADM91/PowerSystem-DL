@@ -97,8 +97,8 @@ deconstruct_6 = np.array([True, False, True, True,
 deconstruct_7 = np.array([False, False, False, True,
                           False, False, True, False,
                           False, True, False, True,
-                          False, True, True, True,
-                          False, False, False, True])
+                          False, False, False, True,
+                          False, False, False, False])
 
 # Lines:
 #       [[  1.,   2.],

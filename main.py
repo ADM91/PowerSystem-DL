@@ -10,6 +10,7 @@
 # TODO: Implement failure mechanism in case of blackout connection action
 # TODO: Implement stochastic tree search optimization
 # TODO: Implement genetic optimization
+# TODO: any undesirable action will output no states (detectable within optimizer)
 
 
 # ---------Old/Fixed Concerns------------
@@ -105,6 +106,8 @@ from optimize.sequence_decoder import decode_sequence
 from visualize.visualize_cost_opt import visualize_cost_opt
 from visualize.visualize_state import visualize_state
 from optimize.RestorationTree import RestorationTree
+from anytree import RenderTree
+from optimize.stochastic_tree_search import stochastic_tree_search
 
 
 np.set_printoptions(precision=2)
@@ -120,10 +123,62 @@ ps = PowerSystem(base_result,
                  verbose=0,
                  verbose_state=0)
 
+# Test stochastic tree search
+# -------------------------------------
+tree = RestorationTree(ps)
+[restoration_cost_store, sequence_store, best_total_cost] = stochastic_tree_search(ps,
+                                                                                   tree,
+                                                                                   opt_iteration=10,
+                                                                                   verbose=1,
+                                                                                   save_data=0,
+                                                                                   folder='test')
+
+# -------------------------------------
+
+
+# Test revert function: I think it works!!!!
+# -------------------------------------
+from copy import deepcopy
+states = []
+
+# First action
+islands = deepcopy(ps.islands)
+state = deepcopy(ps.current_state)
+blackout_conn = deepcopy(ps.blackout_connections)
+states.append(ps.current_state)
+ps.action_line([5, 6])
+ps.revert(islands, state, blackout_conn)
+states.append(ps.current_state)
+
+# Second action
+ps.action_line([5, 6])
+islands = deepcopy(ps.islands)
+state = deepcopy(ps.current_state)
+blackout_conn = deepcopy(ps.blackout_connections)
+states.append(ps.current_state)
+ps.action_line([6, 12])
+ps.revert(islands, state, blackout_conn)
+states.append(ps.current_state)
+
+# Third action
+ps.action_line([6, 12])
+islands = deepcopy(ps.islands)
+state = deepcopy(ps.current_state)
+blackout_conn = deepcopy(ps.blackout_connections)
+states.append(ps.current_state)
+ps.action_line([9, 10])
+ps.revert(islands, state, blackout_conn)
+states.append(ps.current_state)
+
+# -------------------------------------
 
 tree = RestorationTree(ps)
 tree.action_list
 tree.generate_tree()
+RenderTree(tree.root)
+
+
+
 
 # Perform single sequence
 n_actions = int(np.sum([len(item) for item in ps.action_list.values()]))

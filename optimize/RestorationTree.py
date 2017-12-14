@@ -5,10 +5,12 @@ import numpy as np
 class RestorationTree:
     def __init__(self, ps):
 
-        self.ps = ps
         n_actions = int(np.sum([len(item) for item in ps.action_list.values()]))
         self.action_list = np.arange(n_actions)
-        self.root = Node('root', actions_remaining=np.arange(n_actions))
+        self.root = Node('root',
+                         state=ps.current_state,
+                         islands=ps.islands,
+                         actions_remaining=np.arange(n_actions))
         self.queue = [self.root]
 
     def generate_tree(self):
@@ -32,14 +34,13 @@ class RestorationTree:
                 actions_remaining = np.delete(parent.actions_remaining, action_ind)  # deletes action from list
 
                 # is action at edge of an energized area?
-
-
                 new_node = Node('a' + str(action),
                                 parent=parent,
-                                states=[],
+                                state=None,
+                                islands=None,
                                 cost=0,
-                                actions_remaining=actions_remaining,
-                                visited=False)
+                                action=action,
+                                actions_remaining=actions_remaining)
                 self.queue.append(new_node)
 
 
