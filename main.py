@@ -11,6 +11,8 @@
 # TODO: Implement stochastic tree search optimization
 # TODO: Implement genetic optimization
 # TODO: any undesirable action will output no states (detectable within optimizer)
+# TODO: still have issue with connecting between blackout and energized buses... dammmmn
+# TODO: change the tree search probabilities to rank
 
 
 # ---------Old/Fixed Concerns------------
@@ -119,16 +121,16 @@ base_result = octave.runpf(base_case, mp_opt)
 
 # Instantiate PowerSystem class
 ps = PowerSystem(base_result,
-                 deactivated=deconstruct_7,
+                 deactivated=deconstruct_1,
                  verbose=0,
                  verbose_state=0)
 
 # Test stochastic tree search
 # -------------------------------------
 tree = RestorationTree(ps)
-[restoration_cost_store, sequence_store, best_total_cost] = stochastic_tree_search(ps,
+[restoration_cost_store, sequence_store, best_total_cost, seq] = stochastic_tree_search(ps,
                                                                                    tree,
-                                                                                   opt_iteration=10,
+                                                                                   opt_iteration=1000,
                                                                                    verbose=1,
                                                                                    save_data=0,
                                                                                    folder='test')

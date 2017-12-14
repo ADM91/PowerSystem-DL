@@ -82,7 +82,7 @@ def stochastic_tree_search(ps, tree, opt_iteration, verbose=1, save_data=0, fold
                             print('Action failure')
 
                     # Revert to parent state so we can test next child
-                    ps.revert(par.islands, par.state, dict())  # deprecating the blackout connection dictionary
+                    ps.revert(par.islands, par.state, {'buses': [], 'lines': []})  # deprecating the blackout connection dictionary
 
             # Choose next parent stochastically!
             # If no valid children exist:
@@ -116,17 +116,16 @@ def stochastic_tree_search(ps, tree, opt_iteration, verbose=1, save_data=0, fold
 
 
             # Revert power system to chosen parent!
-            ps.revert(par.islands, par.state, dict())
-
-            if verbose:
-                print(ps.action_list)
+            ps.revert(par.islands, par.state, {'buses': [], 'lines': []})
 
         # Evaluate the restoration!!!
         # Need to trace root to current parent (should be leaf) collect sequence and cost.
         if par.is_leaf:
             seq = w.walk(tree.root, par)
-            total_cost = np.sum([node.cost for node in seq])
-            action_seq = [node.action for node in seq]
+            # print(seq)
+            total_cost = np.sum([node.cost for node in seq[-1]])
+            action_seq = [node.action for node in seq[-1]]
+            print(action_seq)
             restoration_cost_store.append(total_cost)
             sequence_store.append(action_seq)
             if total_cost < cheapest:
@@ -143,4 +142,4 @@ def stochastic_tree_search(ps, tree, opt_iteration, verbose=1, save_data=0, fold
         with safe_open_w("data/%s/stochastic_opt_%s.pickle" % (folder, i), 'wb') as output_file:
             pickle.dump(data, output_file)
 
-    return [restoration_cost_store, sequence_store, best_total_cost]
+    return [restoration_cost_store, sequence_store, best_total_cost, seq]
