@@ -10,6 +10,7 @@ class RestorationTree:
         self.root = Node('root',
                          state=ps.current_state,
                          islands=ps.islands,
+                         islands_evaluated=ps.islands_evaluated,
                          actions_remaining=np.arange(n_actions))
         self.queue = [self.root]
 
@@ -38,6 +39,7 @@ class RestorationTree:
                                 parent=parent,
                                 state=None,
                                 islands=None,
+                                islands_evaluated=None,
                                 cost=0,
                                 action=action,
                                 actions_remaining=actions_remaining)

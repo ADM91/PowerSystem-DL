@@ -22,13 +22,14 @@ def make_iterable(obj):
 
 class PowerSystem(object):
 
-    def __init__(self, ideal_case, deactivated=1, verbose=1, verbose_state=0):
+    def __init__(self, ideal_case, spad_lim=10, deactivated=1, verbose=1, verbose_state=0):
 
         self.pp = PrettyPrinter(indent=4)
 
         self.deactivated = deactivated
         self.verbose = verbose
         self.verbose_state = verbose_state
+        self.spad_lim = spad_lim
 
         self.island_map = {-1: 'blackout',
                            0: '0',
@@ -111,23 +112,24 @@ class PowerSystem(object):
         self.blackout_connections = {'buses': [],
                                      'lines': []}
 
-    def revert(self, islands, state, blackout_conn):
+    def revert(self, state, islands, islands_evaluated=None):
         """ Restores the system using previous islands, state, and blackout connection variables"""
 
+        # Restore islands
         self.islands = islands
-
-        # Islands evaluated
-        self.islands_evaluated = dict()
-        self.evaluate_islands()
 
         # Get current state
         self.current_state = state
 
-        # Identify the disconnected system elements - uses the current state variable and islands
-        # self.action_list = dict()
-        # self.generate_action_list()
+        # Restore blackout connections (being deprecated)
+        # self.blackout_connections = blackout_conn
 
-        self.blackout_connections = blackout_conn
+        # Islands evaluated (don't think this is necessary, the given islands should)
+        if islands_evaluated:
+            self.islands_evaluated = islands_evaluated
+        else:
+            self.islands_evaluated = dict()
+            self.evaluate_islands()
 
     def generate_action_list(self):
 
@@ -576,9 +578,6 @@ class PowerSystem(object):
             print('Buses not on action list!')
             return
 
-        # Remove line from the action list
-        # self.action_list['line'] = np.delete(self.action_list['line'], np.where(ind), axis=0)
-
         # Initialize list of states
         state_list = list()
 
@@ -596,7 +595,7 @@ class PowerSystem(object):
             # Need to generate a list of states here, there are several steps performed
             if self.verbose:
                 print('Case: within energized island')
-            state_list = within_energized(self, island_1, bus_ids)
+            state_list = within_energized(self, island_1, bus_ids, self.spad_lim)
 
         # Deprecating the within_blackout function, its not practical to connect lines within blackout
         elif island_1 == island_2 and island_1 == -1:
@@ -635,9 +634,6 @@ class PowerSystem(object):
             print('Load not on action list!')
             return
 
-        # Remove line from the action list
-        # self.action_list['fixed load'] = np.delete(self.action_list['fixed load'], np.where(ind), axis=0)
-
         # Initialize list of states
         state_list = list()
 
@@ -646,7 +642,7 @@ class PowerSystem(object):
         prelim_state['Title'] = 'Preliminary state'  # Shows up on plot
         state_list.append(prelim_state)
 
-        # What islands do the buses reside on? First evaluate current state
+        # What island does bus reside on?
         bus_ind = self.current_state['bus voltage angle'][:, 0] == bus_id
         island = int(self.current_state['bus voltage angle'][bus_ind, 2])
 
@@ -665,10 +661,10 @@ class PowerSystem(object):
         connection_state['Title'] = 'Connecting fixed load on bus %s' % int(bus_id)
         state_list.append(connection_state)
 
-        # Show final steady state
-        after_connection_state = deepcopy(connection_state)
-        after_connection_state['Title'] = 'State after load connection'
-        state_list.append(after_connection_state)
+        # Show final steady state (redundant)
+        # after_connection_state = deepcopy(connection_state)
+        # after_connection_state['Title'] = 'State after load connection'
+        # state_list.append(after_connection_state)
 
         # Ensure that current state variable has the most recent information
         self.current_state = state_list[-1]
@@ -677,14 +673,12 @@ class PowerSystem(object):
         return state_list
 
     def action_dispatch_load(self, bus_id):
+
         # Verify that action is available!
         ind = self.action_list['dispatch load'] == bus_id
         if np.sum(ind) != 1:
             print('Dispatchable load not on action list!')
             return
-
-        # Remove dispatchable load from the action list
-        # self.action_list['dispatch load'] = np.delete(self.action_list['dispatch load'], np.where(ind), axis=0)
 
         # Initialize list of states
         state_list = list()
@@ -714,10 +708,10 @@ class PowerSystem(object):
         connection_state['Title'] = 'Connecting dispatchable load on bus %s' % int(bus_id)
         state_list.append(connection_state)
 
-        # Show final steady state
-        after_connection_state = deepcopy(connection_state)
-        after_connection_state['Title'] = 'State after dispatchable load connection'
-        state_list.append(after_connection_state)
+        # Show final steady state (redundant)
+        # after_connection_state = deepcopy(connection_state)
+        # after_connection_state['Title'] = 'State after dispatchable load connection'
+        # state_list.append(after_connection_state)
 
         # Ensure that current state variable has the most recent information
         self.current_state = state_list[-1]
@@ -732,9 +726,6 @@ class PowerSystem(object):
         if np.sum(ind) != 1:
             print('Load not on action list!')
             return
-
-        # Remove generator from the action list
-        # self.action_list['gen'] = np.delete(self.action_list['gen'], np.where(ind), axis=0)
 
         # Initialize list of states
         state_list = list()
@@ -764,10 +755,10 @@ class PowerSystem(object):
         connection_state['Title'] = 'Connecting generator on bus %s' % int(bus_id)
         state_list.append(connection_state)
 
-        # Show final steady state
-        after_connection_state = deepcopy(connection_state)
-        after_connection_state['Title'] = 'State after generator connection'
-        state_list.append(after_connection_state)
+        # Show final steady state (redundant)
+        # after_connection_state = deepcopy(connection_state)
+        # after_connection_state['Title'] = 'State after generator connection'
+        # state_list.append(after_connection_state)
 
         # Ensure that current state variable has the most recent information
         self.current_state = state_list[-1]

@@ -79,7 +79,7 @@ def between_blackout_energized(ps, island_1, island_2, bus_ids):
     ps.islands['blackout']['bus'] = np.delete(ps.islands['blackout']['bus'], np.where(bus_ind), axis=0)
     ps.islands['blackout']['branch'] = np.delete(ps.islands['blackout']['branch'], np.where(line_ind), axis=0)
 
-    # Check for blackout connected buses
+    # Check for blackout connected buses - being deprecated
     for bus_conn, line_conn in zip(ps.blackout_connections['buses'], ps.blackout_connections['lines']):
         if black_bus in bus_conn:
 
@@ -173,5 +173,8 @@ def between_blackout_energized(ps, island_1, island_2, bus_ids):
     after_connection_state = ps.evaluate_state(list(ps.islands_evaluated.values()))
     after_connection_state['Title'] = 'Solving state after line connection'
     state_list.append(after_connection_state)
+
+    # Ensure that current state variable has the most recent information
+    ps.current_state = state_list[-1]
 
     return state_list

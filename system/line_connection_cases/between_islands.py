@@ -18,6 +18,8 @@ def between_islands(ps, island_1, island_2):
     ps.islands[ps.island_map[island_1]]['branch'] = np.append(ps.islands[ps.island_map[island_1]]['branch'], island_2_copy['branch'], axis=0)
     ps.islands[ps.island_map[island_1]]['gen'] = np.append(ps.islands[ps.island_map[island_1]]['gen'], island_2_copy['gen'], axis=0)
     ps.islands[ps.island_map[island_1]]['gencost'] = np.append(ps.islands[ps.island_map[island_1]]['gencost'], island_2_copy['gencost'], axis=0)
+
+    # TODO: Should I re-sort the matrices at this point? Not clear if its necessary
     
     # Delete island 2
     del ps.islands[ps.island_map[island_2]]
@@ -47,5 +49,8 @@ def between_islands(ps, island_1, island_2):
     after_connection_state = ps.evaluate_state(list(ps.islands_evaluated.values()))
     after_connection_state['Title'] = 'Solving state after island connection'
     state_list.append(after_connection_state)
+
+    # Ensure that current state variable has the most recent information
+    ps.current_state = state_list[-1]
 
     return state_list

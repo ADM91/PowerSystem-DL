@@ -10,6 +10,7 @@ import time
 
 def random_search_opt(ps, opt_iteration, res_iteration, verbose=1, save_data=0, folder='test'):
 
+    all_data = []
     for i in range(opt_iteration):
 
         # Run random action permutations
@@ -82,7 +83,10 @@ def random_search_opt(ps, opt_iteration, res_iteration, verbose=1, save_data=0, 
                     print('--- I gave up, moving on ----\n\n')
 
         # Save data to pickle
+        data = [states_store, time_store, energy_store, cost_store, sequence_store, best_total_cost]
+        all_data.append(data)
         if save_data:
-            data = [states_store, time_store, energy_store, cost_store, sequence_store, best_total_cost]
             with safe_open_w("data/%s/rand_opt_%s.pickle" % (folder, i), 'wb') as output_file:
                 pickle.dump(data, output_file)
+
+    return all_data

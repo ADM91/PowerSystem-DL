@@ -4,15 +4,12 @@
 # TODO: Implement more error handling, what if something doesnt converge?
 # TODO: if there is opf convergence failure, set island to blackout... maybe (only at initial degraded state)
 # TODO: study effect of changing load shedding objective use matpower: function modcost
-
-# TODO: Implement tree representation of possible restorations
-# TODO: Implement revert power system to previous state (this is to enable the tree search)
-# TODO: Implement failure mechanism in case of blackout connection action
-# TODO: Implement stochastic tree search optimization
 # TODO: Implement genetic optimization
-# TODO: any undesirable action will output no states (detectable within optimizer)
 # TODO: still have issue with connecting between blackout and energized buses... dammmmn
-# TODO: change the tree search probabilities to rank
+# TODO: Build a sequence tester, and visualizer (will help validate the optimizations)
+# TODO: Create a consistent data format returned by each optimizer - so that I can use a function to compare results
+# TODO: Improve vis function to do comprehensive visualization of optimization results.
+# TODO: Move testing to IEEE 30 bus network, its more realistic but still small enough to not take too much computing
 
 
 # ---------Old/Fixed Concerns------------
@@ -50,6 +47,47 @@
 # Im not sure what is going on.)
 # -Fixed- Simple bug, needed to move the bus the the energized island
 
+# Need to implement fail-safes to prevent enabling a load or generator within a
+# blackout area... for restorations that violate rules, implement a function to
+# delay the violating action and rerun (feasibility preserving function)
+# - Implemented the feasibility preserver for random search, but need a
+# more robust violation detector because its impractical to connect blackout lines
+# -Fixed- Im just returning an empty state list if this occurs, the optimizers know that this means the action
+# is invalid
+
+# Tree search optimization will generate the tree whilst optimizing.
+# Can therefore view what paths have been explored after optimization.
+# If tree is generated prior to optimization, it will be too large to keep in memory if number of actions is
+# greater than 9 or 10. Maybe 11 if pruning is performed during tree generation.  To prune, the tree has
+# to have information about what the network looks like and this adds substantial computation cost.
+# -Fixed- I just generate the tree as optimization requires.
+
+# Where snapshots are taken during restoration actions:
+
+# LINES - within island
+# Before gen reschedule
+# After gen reschedule & Before connection
+# After connection
+
+# LINES - between energized and blackout
+# Before connection
+# After connection
+
+# LINES - between islands
+# Before connection
+# After connection
+
+# FIXED LOADS
+# before connection
+# after connection (the load parameters are taken from ideal case)
+
+# DISPATCHABLE LOADS
+# before connection
+# after connection (the load is enabled in the gen matrix, remember these are modeled as generators)
+
+# GENERATORS
+# before connection
+# after connection (the generator is enabled in the gen matrix)
 
 # ---------Current Concerns------------
 
@@ -72,20 +110,35 @@
 # objective function? Currently its assumed that they change instantaneously.
 # - Probably a good idea to implement this.
 
-# Need to implement fail-safes to prevent enabling a load or generator within a
-# blackout area... for restorations that violate rules, implement a function to
-# delay the violating action and rerun (feasibility preserving function)
-# - Implemented the feasibility preserver for random search, but need a
-# more robust violation detector because its impractical to connect blackout lines
-
 # Restoration takes about 5 seconds on 14 bus system... this is too slow.
 # Look at using a more efficient opf. Maybe benchmark them and include in thesis.
 
-# Tree search optimization will generate the tree whilst optimizing.
-# Can therefore view what paths have been explored after optimization.
-# If tree is generated prior to optimization, it will be too large to keep in memory if number of actions is
-# greater than 9 or 10. Maybe 11 if pruning is performed during tree generation.  To prune, the tree has
-# to have information about what the network looks like and this adds substantial computation cost.
+# So why is the cost wayy different in the random search optimization and the tree search?
+# Lets take a look at the objective function:
+# Input: a list of states and ideal state for reference
+# Takes two consecutive states and finds generation difference
+# Calculates ramp time between these states
+# Calculates energy not served, generator deviation, loss difference over this time period
+# Calculates cost of energy values
+# Iterates for every consecutive pair of states in state list and saves data
+# Calculates cumulative cost
+# May have been fixed already, but would like to verify with a sequence tester... this is next on the list
+
+# I think with the 14 bus network, the lowest hanging fruit is always the best option, therefore the tree search is
+# great.  This might not be true on larger networks (the best option may be to create a route directly to a lost load).
+# I can test these ideas by designing a degraded state on larger networks.
+
+# What results do I want to show from these optimizations???
+# - Compare variables to total restoration cost (to help understand general good practices):
+#   - restoration time
+#   - lost load
+#   - losses
+# WIP
+
+# Currently, I have an issue when connecting energized island to blackout bus... a duplicate bus gets generated in the
+# island bus matrix.  The voltage angle and magnitude differ, and one has lagrange multipliers. This means that when
+# I run the island evaluation, it fails.
+# This must be caused by a bookkeeping error.  I need to look diligently through the line connection code.
 
 
 # ---------Testing------------
@@ -112,7 +165,7 @@ from anytree import RenderTree
 from optimize.stochastic_tree_search import stochastic_tree_search
 
 
-np.set_printoptions(precision=2)
+np.set_printoptions(precision=3)
 
 # Evaluate base case power system
 base_case = octave.loadcase('case14')
@@ -121,21 +174,31 @@ base_result = octave.runpf(base_case, mp_opt)
 
 # Instantiate PowerSystem class
 ps = PowerSystem(base_result,
-                 deactivated=deconstruct_1,
+                 spad_lim=10,
+                 deactivated=deconstruct_5,
                  verbose=0,
                  verbose_state=0)
 
 # Test stochastic tree search
 # -------------------------------------
 tree = RestorationTree(ps)
-[restoration_cost_store, sequence_store, best_total_cost, seq] = stochastic_tree_search(ps,
-                                                                                   tree,
-                                                                                   opt_iteration=1000,
-                                                                                   verbose=1,
-                                                                                   save_data=0,
-                                                                                   folder='test')
+all_data = stochastic_tree_search(ps,
+                                  tree,
+                                  opt_iteration=30,
+                                  res_iteration=50,
+                                  method='cost',
+                                  verbose=1,
+                                  save_data=1,
+                                  folder='Tree-search-cost-d5')
+
+visualize_cost_opt('Tree-search-cost-d1', title='Tree search: Case 1', fig_num=3)
 
 # -------------------------------------
+
+
+# Random search optimizer
+data = random_search_opt(ps, opt_iteration=1, res_iteration=1, verbose=1, save_data=0, folder='test')
+
 
 
 # Test revert function: I think it works!!!!
@@ -178,7 +241,6 @@ tree = RestorationTree(ps)
 tree.action_list
 tree.generate_tree()
 RenderTree(tree.root)
-
 
 
 
