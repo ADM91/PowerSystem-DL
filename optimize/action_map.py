@@ -1,6 +1,7 @@
 
 
 def create_action_map(action_list):
+    # takes power system action list dictionary and creates an action map dictionary where the keys are integers
 
     action_map = dict()
 

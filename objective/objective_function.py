@@ -1,4 +1,5 @@
 import numpy as np
+from copy import deepcopy
 from auxiliary.config import case14_ramp_rates, dispatch_load_cost, fixed_load_cost, loss_cost, disp_dev_cost
 from objective.cumulative_losses import cumulative_losses
 from objective.cumulative_power_deviation import cumulative_power_deviation
@@ -19,10 +20,10 @@ def objective_function(state_list, ideal_state):
                   'combined total': None}
 
     # Ideal state values
-    ideal_losses = ideal_state['losses']
-    ideal_gen = ideal_state['real gen'][:, 1]
-    ideal_fixed = ideal_state['fixed load'][:, 1]
-    ideal_dispatched = -ideal_state['dispatch load'][:, 1]
+    ideal_losses = deepcopy(ideal_state['losses'])
+    ideal_gen = deepcopy(ideal_state['real gen'][:, 1])
+    ideal_fixed = deepcopy(ideal_state['fixed load'][:, 1])
+    ideal_dispatched = deepcopy(-ideal_state['dispatch load'][:, 1])
 
     for i in range(1, len(state_list)):
 

@@ -10,6 +10,7 @@
 # TODO: Create a consistent data format returned by each optimizer - so that I can use a function to compare results
 # TODO: Improve vis function to do comprehensive visualization of optimization results.
 # TODO: Move testing to IEEE 30 bus network, its more realistic but still small enough to not take too much computing
+# TODO: update the random search algorithm to work with the action map dictionary instead of sequence decoder function
 
 
 # ---------Old/Fixed Concerns------------
@@ -144,28 +145,25 @@
 # ---------Testing------------
 
 import numpy as np
+from anytree import RenderTree
 from oct2py import octave
+
 from auxiliary.config import mp_opt, \
     line_ratings, \
-    deconstruct_1,\
-    deconstruct_2,\
-    deconstruct_3,\
-    deconstruct_4,\
-    deconstruct_5,\
-    deconstruct_6,\
     deconstruct_7
-from system.PowerSystem import PowerSystem
-from optimize.random_search import random_search_opt
+from optimize.RestorationTree import RestorationTree
 from optimize.execute_sequence import execute_sequence
+from optimize.random_search import random_search_opt
 from optimize.sequence_decoder import decode_sequence
+from optimize.stochastic_tree_search import stochastic_tree_search
+from system.PowerSystem import PowerSystem
+from test.test_sequence import test_sequence
 from visualize.visualize_cost_opt import visualize_cost_opt
 from visualize.visualize_state import visualize_state
-from optimize.RestorationTree import RestorationTree
-from anytree import RenderTree
-from optimize.stochastic_tree_search import stochastic_tree_search
+from test.test_revert import test_revert
+from optimize.action_map import create_action_map
 
-
-np.set_printoptions(precision=3)
+np.set_printoptions(precision=2)
 
 # Evaluate base case power system
 base_case = octave.loadcase('case14')
@@ -175,23 +173,35 @@ base_result = octave.runpf(base_case, mp_opt)
 # Instantiate PowerSystem class
 ps = PowerSystem(base_result,
                  spad_lim=10,
-                 deactivated=deconstruct_5,
+                 deactivated=deconstruct_7,
                  verbose=0,
                  verbose_state=0)
+
+action_map = create_action_map(ps.action_list)
+[state_store, time_store, energy_store, cost_store] = test_revert(ps, [0,0,0,0,1,1,1,1,1,1,2,2,2,2,2], action_map)
+
+# Revealed bug: actions do not always yield same results after reversion.  Its the same after first reversion, but
+# Changes after third. What the hell?
+# Maybe the ideal state changes?? Shouldn't, don't think it does.
+# I get basically the same result for EVERY action! The revert function is deeply flawed, this is important.
 
 # Test stochastic tree search
 # -------------------------------------
 tree = RestorationTree(ps)
-all_data = stochastic_tree_search(ps,
-                                  tree,
-                                  opt_iteration=30,
-                                  res_iteration=50,
-                                  method='cost',
-                                  verbose=1,
-                                  save_data=1,
-                                  folder='Tree-search-cost-d5')
+all_data, action_map = stochastic_tree_search(ps,
+                                              tree,
+                                              opt_iteration=1,
+                                              res_iteration=1,
+                                              method='cost',
+                                              verbose=1,
+                                              save_data=0,
+                                              folder='Tree-search-cost-d5')
 
-visualize_cost_opt('Tree-search-cost-d1', title='Tree search: Case 1', fig_num=3)
+[state_list, time_store, energy_store, cost_store] = test_sequence(ps, [2, 0, 1, 3], action_map)
+visualize_state(ps.ideal_case, ps.ideal_state, state_list)
+
+
+# visualize_cost_opt('Tree-search-cost-d1', title='Tree search: Case 1', fig_num=3)
 
 # -------------------------------------
 
@@ -201,39 +211,6 @@ data = random_search_opt(ps, opt_iteration=1, res_iteration=1, verbose=1, save_d
 
 
 
-# Test revert function: I think it works!!!!
-# -------------------------------------
-from copy import deepcopy
-states = []
-
-# First action
-islands = deepcopy(ps.islands)
-state = deepcopy(ps.current_state)
-blackout_conn = deepcopy(ps.blackout_connections)
-states.append(ps.current_state)
-ps.action_line([5, 6])
-ps.revert(islands, state, blackout_conn)
-states.append(ps.current_state)
-
-# Second action
-ps.action_line([5, 6])
-islands = deepcopy(ps.islands)
-state = deepcopy(ps.current_state)
-blackout_conn = deepcopy(ps.blackout_connections)
-states.append(ps.current_state)
-ps.action_line([6, 12])
-ps.revert(islands, state, blackout_conn)
-states.append(ps.current_state)
-
-# Third action
-ps.action_line([6, 12])
-islands = deepcopy(ps.islands)
-state = deepcopy(ps.current_state)
-blackout_conn = deepcopy(ps.blackout_connections)
-states.append(ps.current_state)
-ps.action_line([9, 10])
-ps.revert(islands, state, blackout_conn)
-states.append(ps.current_state)
 
 # -------------------------------------
 
