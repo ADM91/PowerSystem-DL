@@ -58,9 +58,10 @@ def iterate(item):
     else:
         return item
 
+
 def execute_sequence_2(ps_obj, sequence, action_map):
 
-    # Perform actions according to sequence
+    # Perform actions according to sequence and action map
     states = []
     for action in iterate(sequence):
         action_type = action_map[action][0]
