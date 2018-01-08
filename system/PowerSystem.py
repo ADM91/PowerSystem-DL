@@ -85,7 +85,7 @@ class PowerSystem(object):
                                      'lines': []}
 
     def reset(self):
-        """Rests the class to its original degraded state"""
+        """Resets the class to its original degraded state"""
 
         # Deconstruct the ideal case
         if type(self.deactivated) == int:
@@ -216,10 +216,6 @@ class PowerSystem(object):
             if island['is_gen'] and island['is_load']:
                 # Evaluate the energized island with opf constraints
                 gencost = deepcopy(island['gencost'])
-                # print(island['gen'][:, [0,1,2,7]])
-                # print(island['gencost'])
-                # print(island['branch'][:, [0,1,10]])
-                # print(island['bus'][:,[0,1]])
                 result = octave.runopf(island, mp_opt)
                 result = self.get_losses(result)
                 result['gencost'] = gencost
@@ -430,16 +426,6 @@ class PowerSystem(object):
         # Detect if there is load and or gen
         islands = self.is_load_is_gen(islands)
 
-        # Initialize blackout dictionary to empty arrays
-        self.islands['blackout'] = {'bus': np.empty((0, self.ideal_case['bus'].shape[1])),
-                                    'branch': np.empty((0, self.ideal_case['branch'].shape[1])),
-                                    'gen': np.empty((0, self.ideal_case['gen'].shape[1])),
-                                    'gencost': np.empty((0, self.ideal_case['gencost'].shape[1])),
-                                    'connections': list(),
-                                    'is_load': 0,
-                                    'is_gen': 0,
-                                    'losses': 0,
-                                    'id': -1}
         count = 0
         for island in make_iterable(islands):
             if self.verbose:
@@ -488,6 +474,17 @@ class PowerSystem(object):
         if self.verbose:
             print('\nExtracting blackout area')
             print('Using evaluate_state to uncover what is under blackout')
+
+        # Initialize blackout dictionary to empty arrays
+        self.islands['blackout'] = {'bus': np.empty((0, self.ideal_case['bus'].shape[1])),
+                                    'branch': np.empty((0, self.ideal_case['branch'].shape[1])),
+                                    'gen': np.empty((0, self.ideal_case['gen'].shape[1])),
+                                    'gencost': np.empty((0, self.ideal_case['gencost'].shape[1])),
+                                    'connections': list(),
+                                    'is_load': 0,
+                                    'is_gen': 0,
+                                    'losses': 0,
+                                    'id': -1}
 
         # Add left over blackout elements! We need to evaluate the state and check for nans
         state = self.evaluate_state(list(self.islands.values()))

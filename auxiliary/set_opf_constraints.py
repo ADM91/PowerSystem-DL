@@ -26,7 +26,7 @@ def set_opf_constraints(test_case, set_branch=(), max_SPA=365, set_gen=True, set
     dispatch schedule) and sets the necessary constraints to run opf.
 
     :param test_case: Matpower case
-    :param branch_deactivated: A list of indices to deactivated branches
+    :param set_branch: A list of indices to branches for which to constrain SPAD
     :param max_SPA: The maximum standing phase angle constraint on deactivated line
     :return test_case: Modified Matpower case
     """

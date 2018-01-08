@@ -141,6 +141,8 @@
 # I run the island evaluation, it fails.
 # This must be caused by a bookkeeping error.  I need to look diligently through the line connection code.
 
+# Do I really need islands_evaluated? Can't I just maintain islands with matpower opf result with additional info?
+
 
 # ---------Testing------------
 
@@ -178,7 +180,86 @@ ps = PowerSystem(base_result,
                  verbose_state=0)
 
 action_map = create_action_map(ps.action_list)
-[state_store, time_store, energy_store, cost_store] = test_revert(ps, [0,0,0,0,1,1,1,1,1,1,2,2,2,2,2], action_map)
+ps.reset()
+# First action
+ps.action_line([2, 4])
+ps.action_line([4, 5])
+[state_store, time_store, energy_store, cost_store], l1 = test_revert(ps, [3,3,3,3,3,3,3,3,3], action_map)
+
+# Checking if original state stays the same throughout the test
+# ----------------------------------------------------------------
+from matplotlib import pyplot as plt
+from objective.objective_function import objective_function
+[time, energy, cost] = objective_function(l1, ps.ideal_state)  # Everything is zero because time between states is zero
+plt.plot(energy['dispatch deviation'])
+# ----------------------------------------------------------------
+# Looks like it does! That means the information is not translated correctly to the ps model using ps.revert
+
+# Need to investigate if the revert inconsistency occurs if I revert back not to the ideal case - it does
+# Need to look at the actual states and figure out where the inconsistencies are - then look for how that might happen
+
+# Detect differences between states (real injection)
+len(state_store)
+state_store[0]  # inital
+state_store[1]  # Prelim state (should be same as initial)
+state_store[0]['real inj'] - state_store[1]['real inj']  # Good these are the same
+
+state_store[2]  # Reschedule for connection
+state_store[3]  # State after connection (end)
+state_store[2]['real inj'] - state_store[3]['real inj']
+
+
+state_store[4]  # Back to reference state
+state_store[3]['real inj'] - state_store[4]['real inj']
+
+state_store[0]['real inj'] - state_store[4]['real inj']  # Good, reference state is the same
+
+state_store[6]  # Reschedule for connection
+state_store[7]  # State after connection (end)
+(state_store[6]['real inj'] - state_store[7]['real inj']) - (state_store[2]['real inj'] - state_store[3]['real inj'])  # Good change remains the same
+(state_store[10]['real inj'] - state_store[11]['real inj']) - (state_store[2]['real inj'] - state_store[3]['real inj'])  # NOT GOOD, the change is different
+
+# Check rescedule for connection
+state_store[5]['real inj'] - state_store[9]['real inj']  # Good, have same prelim state before gen redispatch
+
+# Check redispatch state
+state_store[6]['real inj'] - state_store[10]['real inj']  # Bad, redispatch states differ...
+
+
+# Need to look at how the evaluated islands change, might shed some light on the problem, check out ps code to check
+# for other dependencies
+len(l1)
+l1[0]['0']['bus']  # inital
+l1[1]['0']['bus']   # Prelim state (should be same as initial)
+l1[0]['0']['bus'] - l1[1]['0']['bus']   # Good these are the same
+
+l1[2]['0']['bus']  # Reschedule for connection
+l1[3]['0']['bus']  # State after connection (end)
+l1[2]['0']['bus'] - l1[3]['0']['bus']  # Zeros means these are the same... they shouldn't be
+l1[2]['0']['branch'] - l1[3]['0']['branch']  # Zeros means these are the same... they shouldn't be
+l1[2]['0']['gen'] - l1[3]['0']['gen']  # Zeros means these are the same... they shouldn't be
+l1[2]['0']['gencost'] - l1[3]['0']['gencost']  # Zeros means these are the same... they shouldn't be
+
+
+l1[6]['0']['bus']  # Reschedule for connection
+l1[7]['0']['bus']  # State after connection (end)
+l1[6]['0']['bus'] - l1[7]['0']['bus']  # Zeros means these are the same... they shouldn't be
+l1[2]['0']['branch'] - l1[3]['0']['branch']  # Zeros means these are the same... they shouldn't be
+l1[2]['0']['gen'] - l1[3]['0']['gen']  # Zeros means these are the same... they shouldn't be
+l1[2]['0']['gencost'] - l1[3]['0']['gencost']  # Zeros means these are the same... they shouldn't be
+
+visualize_state(ps.ideal_case, ps.ideal_state, state_store)
+
+plt.plot(cost_store['total'])
+plt.plot(cost_store['lost load'])
+plt.plot(cost_store['losses'])
+plt.plot(cost_store['dispatch deviation'])
+
+plt.plot(energy_store['lost load'])
+plt.plot(energy_store['dispatch deviation'])
+plt.plot(energy_store['losses'])
+
+
 
 # Revealed bug: actions do not always yield same results after reversion.  Its the same after first reversion, but
 # Changes after third. What the hell?
@@ -198,6 +279,9 @@ all_data, action_map = stochastic_tree_search(ps,
                                               folder='Tree-search-cost-d5')
 
 [state_list, time_store, energy_store, cost_store] = test_sequence(ps, [2, 0, 1, 3], action_map)
+[state_store, time_store, energy_store, cost_store] = test_revert(ps, [2, 2, 2, 2, 2], action_map)
+
+
 visualize_state(ps.ideal_case, ps.ideal_state, state_list)
 
 

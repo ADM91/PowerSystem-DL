@@ -11,14 +11,6 @@ w = Walker()
 
 def stochastic_tree_search(ps, tree, opt_iteration, res_iteration, method='cost', verbose=1, save_data=0, folder='test'):
 
-    # I have a serious issue: The costs of each action are not matching up with the sequence sim (which I believe
-    # does a correct calculation of each variable).  Most likely cause of this problem is in the reversion to previous
-    # states and re-simulation. Some information must not be reverted correctly.  I can test that.  Another potential
-    # problem may be in the tree traversal, perhaps this isn't doing what I believed. OR, It could be that I am not
-    # grabbing the correct information from the walker... I should test the reversion again to be SURE that it works
-    # as I expect, then look at the walker and compare to a manual check of tree nodes, lastly test to make sure that
-    # the actual tree generation protocol works as expected.
-
     # Data storage variable
     all_data = []
 
