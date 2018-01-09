@@ -142,14 +142,13 @@
 # This must be caused by a bookkeeping error.  I need to look diligently through the line connection code.
 
 # Do I really need islands_evaluated? Can't I just maintain islands with matpower opf result with additional info?
-
+# Save the islands data along with state when performing actions, might be useful for debugging...
 
 # ---------Testing------------
 
 import numpy as np
 from anytree import RenderTree
 from oct2py import octave
-
 from auxiliary.config import mp_opt, \
     line_ratings, \
     deconstruct_7
@@ -180,17 +179,23 @@ ps = PowerSystem(base_result,
                  verbose_state=0)
 
 action_map = create_action_map(ps.action_list)
+
+# Perform simple restoration - seems to work with my code simplifications
+sequence = [2, 3, 0, 1]
+[state_list, island_list, time_store, energy_store, cost_store] = test_sequence(ps, sequence, action_map)
+visualize_state(ps.ideal_case, ps.ideal_state, state_list)
+
+# Revert testing
 ps.reset()
-# First action
 ps.action_line([2, 4])
 ps.action_line([4, 5])
-[state_store, time_store, energy_store, cost_store], l1 = test_revert(ps, [3,3,3,3,3,3,3,3,3], action_map)
+[state_store, island_store, time_store, energy_store, cost_store] = test_revert(ps, [3,3,3,3,3,3,3,3,3], action_map)
 
 # Checking if original state stays the same throughout the test
 # ----------------------------------------------------------------
 from matplotlib import pyplot as plt
 from objective.objective_function import objective_function
-[time, energy, cost] = objective_function(l1, ps.ideal_state)  # Everything is zero because time between states is zero
+[time, energy, cost] = objective_function(state_store, ps.ideal_state)  # Everything is zero because time between states is zero
 plt.plot(energy['dispatch deviation'])
 # ----------------------------------------------------------------
 # Looks like it does! That means the information is not translated correctly to the ps model using ps.revert
@@ -199,54 +204,60 @@ plt.plot(energy['dispatch deviation'])
 # Need to look at the actual states and figure out where the inconsistencies are - then look for how that might happen
 
 # Detect differences between states (real injection)
-len(state_store)
-state_store[0]  # inital
-state_store[1]  # Prelim state (should be same as initial)
-state_store[0]['real inj'] - state_store[1]['real inj']  # Good these are the same
+# Round 1
+state_store[0]  # Prelim state (should be same as initial)
+state_store[1]  # Rescheduling for connection of branch 10 - 11'
+state_store[0]['real inj'] - state_store[1]['real inj']
+state_store[2]  # Solving state after line connection
+state_store[1]['real inj'] - state_store[2]['real inj']
 
-state_store[2]  # Reschedule for connection
-state_store[3]  # State after connection (end)
-state_store[2]['real inj'] - state_store[3]['real inj']
-
-
-state_store[4]  # Back to reference state
+# Round 2
+state_store[3]  # Prelim state (should be same as initial)
+state_store[4]  # Rescheduling for connection of branch 10 - 11'
 state_store[3]['real inj'] - state_store[4]['real inj']
+state_store[5]  # Solving state after line connection
+state_store[4]['real inj'] - state_store[5]['real inj']
 
-state_store[0]['real inj'] - state_store[4]['real inj']  # Good, reference state is the same
+# Check between rounds - SAME
+state_store[0]['real inj'] - state_store[3]['real inj']
+state_store[1]['real inj'] - state_store[4]['real inj']
+state_store[2]['real inj'] - state_store[5]['real inj']
 
-state_store[6]  # Reschedule for connection
-state_store[7]  # State after connection (end)
-(state_store[6]['real inj'] - state_store[7]['real inj']) - (state_store[2]['real inj'] - state_store[3]['real inj'])  # Good change remains the same
-(state_store[10]['real inj'] - state_store[11]['real inj']) - (state_store[2]['real inj'] - state_store[3]['real inj'])  # NOT GOOD, the change is different
+# Round 3
+state_store[6]  # Prelim state (should be same as initial)
+state_store[7]  # Rescheduling for connection of branch 10 - 11'
+state_store[6]['real inj'] - state_store[7]['real inj']
+state_store[8]  # Solving state after line connection
+state_store[7]['real inj'] - state_store[8]['real inj']
 
-# Check rescedule for connection
-state_store[5]['real inj'] - state_store[9]['real inj']  # Good, have same prelim state before gen redispatch
+# Check between rounds - NOT THE SAME
+state_store[3]['real inj'] - state_store[6]['real inj']  # Preliminary states not the same???
+state_store[4]['real inj'] - state_store[7]['real inj']
+state_store[5]['real inj'] - state_store[8]['real inj']
 
-# Check redispatch state
-state_store[6]['real inj'] - state_store[10]['real inj']  # Bad, redispatch states differ...
+
+#
+#
+# state_store[4]  # Back to reference state
+# state_store[3]['real inj'] - state_store[4]['real inj']
+#
+# state_store[0]['real inj'] - state_store[4]['real inj']  # Good, reference state is the same
+#
+# state_store[6]  # Reschedule for connection
+# state_store[7]  # State after connection (end)
+# (state_store[6]['real inj'] - state_store[7]['real inj']) - (state_store[2]['real inj'] - state_store[3]['real inj'])  # Good change remains the same
+# (state_store[10]['real inj'] - state_store[11]['real inj']) - (state_store[2]['real inj'] - state_store[3]['real inj'])  # NOT GOOD, the change is different
+#
+# # Check rescedule for connection
+# state_store[5]['real inj'] - state_store[9]['real inj']  # Good, have same prelim state before gen redispatch
+#
+# # Check redispatch state
+# state_store[6]['real inj'] - state_store[10]['real inj']  # Bad, redispatch states differ...
 
 
 # Need to look at how the evaluated islands change, might shed some light on the problem, check out ps code to check
 # for other dependencies
-len(l1)
-l1[0]['0']['bus']  # inital
-l1[1]['0']['bus']   # Prelim state (should be same as initial)
-l1[0]['0']['bus'] - l1[1]['0']['bus']   # Good these are the same
 
-l1[2]['0']['bus']  # Reschedule for connection
-l1[3]['0']['bus']  # State after connection (end)
-l1[2]['0']['bus'] - l1[3]['0']['bus']  # Zeros means these are the same... they shouldn't be
-l1[2]['0']['branch'] - l1[3]['0']['branch']  # Zeros means these are the same... they shouldn't be
-l1[2]['0']['gen'] - l1[3]['0']['gen']  # Zeros means these are the same... they shouldn't be
-l1[2]['0']['gencost'] - l1[3]['0']['gencost']  # Zeros means these are the same... they shouldn't be
-
-
-l1[6]['0']['bus']  # Reschedule for connection
-l1[7]['0']['bus']  # State after connection (end)
-l1[6]['0']['bus'] - l1[7]['0']['bus']  # Zeros means these are the same... they shouldn't be
-l1[2]['0']['branch'] - l1[3]['0']['branch']  # Zeros means these are the same... they shouldn't be
-l1[2]['0']['gen'] - l1[3]['0']['gen']  # Zeros means these are the same... they shouldn't be
-l1[2]['0']['gencost'] - l1[3]['0']['gencost']  # Zeros means these are the same... they shouldn't be
 
 visualize_state(ps.ideal_case, ps.ideal_state, state_store)
 

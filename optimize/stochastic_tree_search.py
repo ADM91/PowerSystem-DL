@@ -79,7 +79,6 @@ def stochastic_tree_search(ps, tree, opt_iteration, res_iteration, method='cost'
                             child.cost = cost
                             child.state = deepcopy(ps.current_state)
                             child.islands = deepcopy(ps.islands)
-                            child.islands_evaluated = deepcopy(ps.islands_evaluated)
 
                             if verbose:
                                 print('Action success')
@@ -91,7 +90,7 @@ def stochastic_tree_search(ps, tree, opt_iteration, res_iteration, method='cost'
                                 print('Action failure')
 
                         # Revert to parent state so we can test next child
-                        ps.revert(par.state, par.islands, par.islands_evaluated)  # deprecating the blackout connection dictionary
+                        ps.revert(par.state, par.islands)  # deprecating the blackout connection dictionary
 
                 # Choose next parent stochastically!
                 # If no valid children exist:
@@ -141,7 +140,7 @@ def stochastic_tree_search(ps, tree, opt_iteration, res_iteration, method='cost'
                         print('Child selected: %s' % par.name)
 
                 # Revert power system to chosen child or sibling!
-                ps.revert(par.state, par.islands, par.islands_evaluated)
+                ps.revert(par.state, par.islands)
 
             # Evaluate the restoration!!!
             # Need to trace root to current parent (should be leaf) collect sequence and cost.

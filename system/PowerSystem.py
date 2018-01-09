@@ -5,10 +5,10 @@ import oct2py
 from oct2py import octave
 from auxiliary.config import mp_opt
 from auxiliary.set_opf_constraints import set_opf_constraints
-from system.line_connection_cases.within_energized import within_energized
-from system.line_connection_cases.within_blackout import within_blackout
 from system.line_connection_cases.between_blackout_energized import between_blackout_energized
 from system.line_connection_cases.between_islands import between_islands
+from system.line_connection_cases.within_energized import within_energized
+from system.take_snapshot import take_snapshot
 
 
 def make_iterable(obj):
@@ -68,13 +68,10 @@ class PowerSystem(object):
         # Detect and isolate islands, identify blackout zone
         self.islands = dict()
         self.get_islands(self.broken_case)
-
-        # Islands evaluated
-        self.islands_evaluated = dict()
         self.evaluate_islands()
 
         # Get current state
-        self.current_state = self.evaluate_state(list(self.islands_evaluated.values()))
+        self.current_state = self.evaluate_state(list(self.islands.values()))
 
         # Identify the disconnected system elements - uses the current state variable and islands
         self.action_list = dict()
@@ -96,13 +93,10 @@ class PowerSystem(object):
         # Detect and isolate islands, identify blackout zone
         self.islands = dict()
         self.get_islands(self.broken_case)
-
-        # Islands evaluated
-        self.islands_evaluated = dict()
         self.evaluate_islands()
 
         # Get current state
-        self.current_state = self.evaluate_state(list(self.islands_evaluated.values()))
+        self.current_state = self.evaluate_state(list(self.islands.values()))
 
         # Identify the disconnected system elements - uses the current state variable and islands
         self.action_list = dict()
@@ -112,7 +106,7 @@ class PowerSystem(object):
         self.blackout_connections = {'buses': [],
                                      'lines': []}
 
-    def revert(self, state, islands, islands_evaluated=None):
+    def revert(self, state, islands):
         """ Restores the system using previous islands, state, and blackout connection variables"""
 
         # Restore islands
@@ -120,16 +114,6 @@ class PowerSystem(object):
 
         # Get current state
         self.current_state = state
-
-        # Restore blackout connections (being deprecated)
-        # self.blackout_connections = blackout_conn
-
-        # Islands evaluated (don't think this is necessary, the given islands should)
-        if islands_evaluated:
-            self.islands_evaluated = islands_evaluated
-        else:
-            self.islands_evaluated = dict()
-            self.evaluate_islands()
 
     def generate_action_list(self):
 
@@ -209,7 +193,6 @@ class PowerSystem(object):
         # and overwrite the result with this prior gencost matrix
 
         # Loop through the islands
-        self.islands_evaluated = dict()  # Re-initialize (we need to evaluate islands between actions)
         for key, island in list(self.islands.items()):
 
             # Only run for islands with both load and generation
@@ -218,28 +201,26 @@ class PowerSystem(object):
                 gencost = deepcopy(island['gencost'])
                 result = octave.runopf(island, mp_opt)
                 result = self.get_losses(result)
-                result['gencost'] = gencost
-                self.islands_evaluated[key] = result
 
-                # Set islands data to current evaluated island data! -- Be aware this might fuck shit up
+                # Reset island data to the evaluated result
                 # Octave object/dynamic does not work, so we have to reconstruct the mpc from scratch (not that hard)
-                mpc = dict()
-                mpc['bus'] = result['bus']
-                mpc['branch'] = result['branch']
-                mpc['gen'] = result['gen']
-                mpc['gencost'] = result['gencost']
-                mpc['losses'] = result['losses']
-                mpc['slack_ind'] = island['slack_ind']
-                mpc['baseMVA'] = island['baseMVA']
-                mpc['is_gen'] = island['is_gen']
-                mpc['is_load'] = island['is_load']
-                mpc['bus_name'] = island['bus_name']
-                mpc['id'] = island['id']
-                self.islands[key] = mpc
+                # mpc = dict()
+                island['bus'] = result['bus']
+                island['branch'] = result['branch']
+                island['gen'] = result['gen']
+                island['gencost'] = gencost
+                island['losses'] = result['losses']
+                # mpc['slack_ind'] = island['slack_ind']
+                # mpc['baseMVA'] = island['baseMVA']
+                # mpc['is_gen'] = island['is_gen']
+                # mpc['is_load'] = island['is_load']
+                # mpc['bus_name'] = island['bus_name']
+                # mpc['id'] = island['id']
+                self.islands[key] = island
 
             else:  # Blackout area gets returned as is
                 island['losses'] = 0
-                self.islands_evaluated[key] = island
+                self.islands[key] = island
 
     def evaluate_state(self, island_list):
 
@@ -432,7 +413,7 @@ class PowerSystem(object):
                 print('Extracting island %s' % island['id'])
                 print('gen: %s \nload: %s' % (island['is_gen'], island['is_load']))
 
-            # If there is both generation and loads
+            # If there is both generation and load
             if island['is_gen'] and island['is_load']:
                 if self.verbose:
                     print('Island is energized')
@@ -575,9 +556,6 @@ class PowerSystem(object):
             print('Buses not on action list!')
             return
 
-        # Initialize list of states
-        state_list = list()
-
         # What islands do the buses reside on? First evaluate current state
         bus_ind_1 = (self.current_state['bus voltage angle'][:, 0] == bus_ids[0]).reshape(-1)
         bus_ind_2 = (self.current_state['bus voltage angle'][:, 0] == bus_ids[1]).reshape(-1)
@@ -592,36 +570,36 @@ class PowerSystem(object):
             # Need to generate a list of states here, there are several steps performed
             if self.verbose:
                 print('Case: within energized island')
-            state_list = within_energized(self, island_1, bus_ids, self.spad_lim)
+            state_list, island_list = within_energized(self, island_1, bus_ids, self.spad_lim)
 
         # Deprecating the within_blackout function, its not practical to connect lines within blackout
         elif island_1 == island_2 and island_1 == -1:
             # Don't need to create a state list in this case, just record whats connected!
             if self.verbose:
                 print('Case: within blackout area')
-            # state_list = within_blackout(self, bus_ids)
             return []
 
         elif island_1 != island_2 and (island_1 != -1 and island_2 != -1):
             if self.verbose:
                 print('Case: Connecting energized islands %s and %s \n' % (island_1, island_2))
-            state_list = between_islands(self, island_1, island_2)
+            state_list, island_list = between_islands(self, island_1, island_2)
 
         elif island_1 != island_2 and (island_1 == -1 or island_2 == -1):
             # There should be state collection here
             if self.verbose:
                 print('Case: connecting non-energized bus to energized island')
-            state_list = between_blackout_energized(self, island_1, island_2, bus_ids)
+            state_list, island_list = between_blackout_energized(self, island_1, island_2, bus_ids)
 
         else:
             if self.verbose:
                 print('SOMETHING IS NOT RIGHT')
+            return []
 
         # Ensure that current state variables has the most recent information
         self.current_state = state_list[-1]
 
         # Feed the objective function state list.
-        return state_list
+        return state_list, island_list
 
     def action_fixed_load(self, bus_id):
 
@@ -631,13 +609,8 @@ class PowerSystem(object):
             print('Load not on action list!')
             return
 
-        # Initialize list of states
-        state_list = list()
-
         # Take preliminary snapshot of the system
-        prelim_state = self.evaluate_state(list(self.islands_evaluated.values()))
-        prelim_state['Title'] = 'Preliminary state'  # Shows up on plot
-        state_list.append(prelim_state)
+        state_list, island_list = take_snapshot(self, 'Preliminary state', [], [])
 
         # What island does bus reside on?
         bus_ind = self.current_state['bus voltage angle'][:, 0] == bus_id
@@ -652,22 +625,18 @@ class PowerSystem(object):
         ideal_bus_ind = (self.ideal_case['bus'][:, 0] == bus_id).reshape(-1)
         self.islands[self.island_map[island]]['bus'][island_bus_ind, 2:4] = self.ideal_case['bus'][ideal_bus_ind, 2:4]
 
-        # For visualization purposes, show that the load is reconnected
+        # Evaluate islands with new load
         self.evaluate_islands()
-        connection_state = self.evaluate_state(list(self.islands_evaluated.values()))
-        connection_state['Title'] = 'Connecting fixed load on bus %s' % int(bus_id)
-        state_list.append(connection_state)
 
-        # Show final steady state (redundant)
-        # after_connection_state = deepcopy(connection_state)
-        # after_connection_state['Title'] = 'State after load connection'
-        # state_list.append(after_connection_state)
+        # Take snapshot
+        title = 'Connecting fixed load on bus %s' % int(bus_id)
+        state_list, island_list = take_snapshot(self, title, state_list, island_list)
 
         # Ensure that current state variable has the most recent information
         self.current_state = state_list[-1]
 
         # Feed the objective function state list.
-        return state_list
+        return state_list, island_list
 
     def action_dispatch_load(self, bus_id):
 
@@ -677,13 +646,8 @@ class PowerSystem(object):
             print('Dispatchable load not on action list!')
             return
 
-        # Initialize list of states
-        state_list = list()
-
         # Take preliminary snapshot of the system
-        prelim_state = self.evaluate_state(list(self.islands_evaluated.values()))
-        prelim_state['Title'] = 'Preliminary state'  # Shows up on plot
-        state_list.append(prelim_state)
+        state_list, island_list = take_snapshot(self, 'Preliminary state', [], [])
 
         # What islands does the bus reside on?
         bus_ind = self.current_state['bus voltage angle'][:, 0] == bus_id
@@ -694,27 +658,23 @@ class PowerSystem(object):
             return []
 
         # Activate the dispatchable load
-        # I have to be careful to select the load (a generator may reside on the same bus)
+        # I have to be careful to select the load not generator (a generator may reside on the same bus)
         load_ind = np.where(octave.isload(self.islands[self.island_map[island]]['gen']) == 1)[0]  # indicies of loads
         bus_ind = np.where(self.islands[self.island_map[island]]['gen'][load_ind, 0] == bus_id)  # index to gen_ind
         self.islands[self.island_map[island]]['gen'][load_ind[bus_ind], 7] = 1
 
-        # For visualization purposes, show that the load is reconnected
+        # Evaluate islands with new load
         self.evaluate_islands()
-        connection_state = self.evaluate_state(list(self.islands_evaluated.values()))
-        connection_state['Title'] = 'Connecting dispatchable load on bus %s' % int(bus_id)
-        state_list.append(connection_state)
 
-        # Show final steady state (redundant)
-        # after_connection_state = deepcopy(connection_state)
-        # after_connection_state['Title'] = 'State after dispatchable load connection'
-        # state_list.append(after_connection_state)
+        # Take snapshot
+        title = 'Connecting dispatchable load on bus %s' % int(bus_id)
+        state_list, island_list = take_snapshot(self, title, state_list, island_list)
 
         # Ensure that current state variable has the most recent information
         self.current_state = state_list[-1]
 
         # Feed the objective function state list.
-        return state_list
+        return state_list, island_list
 
     def action_gen(self, bus_id):
 
@@ -724,13 +684,8 @@ class PowerSystem(object):
             print('Load not on action list!')
             return
 
-        # Initialize list of states
-        state_list = list()
-
         # Take preliminary snapshot of the system
-        prelim_state = self.evaluate_state(list(self.islands_evaluated.values()))
-        prelim_state['Title'] = 'Preliminary state'  # Shows up on plot
-        state_list.append(prelim_state)
+        state_list, island_list = take_snapshot(self, 'Preliminary state', [], [])
 
         # What islands does the bus reside on?
         bus_ind = self.current_state['bus voltage angle'][:, 0] == bus_id
@@ -746,22 +701,22 @@ class PowerSystem(object):
         bus_ind = np.where(self.islands[self.island_map[island]]['gen'][gen_ind, 0] == bus_id)  # index to gen_ind
         self.islands[self.island_map[island]]['gen'][gen_ind[bus_ind], 7] = 1
 
-        # For visualization purposes, show that the generator is reconnected
+        # Evaluate islands with new generator connection
         self.evaluate_islands()
-        connection_state = self.evaluate_state(list(self.islands_evaluated.values()))
+
+        # Take snapshot
+        title = 'Connecting generator on bus %s' % int(bus_id)
+        state_list, island_list = take_snapshot(self, title, state_list, island_list)
+
+        connection_state = self.evaluate_state(list(self.islands.values()))
         connection_state['Title'] = 'Connecting generator on bus %s' % int(bus_id)
         state_list.append(connection_state)
-
-        # Show final steady state (redundant)
-        # after_connection_state = deepcopy(connection_state)
-        # after_connection_state['Title'] = 'State after generator connection'
-        # state_list.append(after_connection_state)
 
         # Ensure that current state variable has the most recent information
         self.current_state = state_list[-1]
 
         # Feed the objective function state list.
-        return state_list
+        return state_list, island_list
 
     @staticmethod
     def get_losses(case):

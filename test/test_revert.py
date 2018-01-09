@@ -28,6 +28,7 @@ def test_revert(ps, actions, action_map):
 
     # This function tests the revert function of the PowerSystem class, to validate its performance.
     state_store = []
+    island_store = []
     time_store = []
     energy_store = {'lost load': [],
                     'losses': [],
@@ -41,29 +42,20 @@ def test_revert(ps, actions, action_map):
     # Deepcopy relevant ps attributes
     islands = deepcopy(ps.islands)
     state = deepcopy(ps.current_state)
-    islands_evaluated = deepcopy(ps.islands_evaluated)
     ideal_state = deepcopy(ps.ideal_state)
-    l1 = []  # for tracking state (should always return to the same state after revert)
 
     for action in actions:
 
-        # Snapshot of initial state
-        state_store.append(ps.current_state)
-
         # Perform action
-        intermediate_states = execute_sequence_2(ps, action, action_map)
-        for s in intermediate_states:
+        intermediate_states, intermediate_islands = execute_sequence_2(ps, action, action_map)
+        for s, i in zip(intermediate_states, intermediate_islands):
             state_store.append(s)
-
-        l1.append(ps.islands_evaluated)
+            island_store.append(i)
 
         # Evaluate objective function for action
         [time, energy, cost] = objective_function(intermediate_states, ideal_state)
 
-        ps.revert(state, islands, islands_evaluated)
-
-
-        # state_store.append(ps.current_state)
+        ps.revert(state, islands)
 
         # Append inside dictionary
         for t in time:
@@ -71,7 +63,7 @@ def test_revert(ps, actions, action_map):
         energy_store = integrate_dict(energy_store, energy)
         cost_store = integrate_dict(cost_store, cost)
 
-    return [state_store, time_store, energy_store, cost_store], l1
+    return [state_store, island_store, time_store, energy_store, cost_store]
 
 
 

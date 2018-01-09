@@ -62,43 +62,48 @@ def iterate(item):
 def execute_sequence_2(ps_obj, sequence, action_map):
 
     # Perform actions according to sequence and action map
-    states = []
+    state_list = list()
+    island_list = list()
     for action in iterate(sequence):
         action_type = action_map[action][0]
         buses = action_map[action][1]
 
         if action_type == 'line':
-            output = ps_obj.action_line(buses)
-            if len(output) > 0:
-                for state in output:
-                    states.append(state)
+            sl, il = ps_obj.action_line(buses)
+            if len(sl) > 0:
+                for s, l in zip(sl, il):
+                    state_list.append(s)
+                    island_list.append(l)
             else:
                 print('Line restoration failure: exiting')
                 return
 
         elif action_type == 'gen':
-            output = ps_obj.action_gen(buses)
-            if len(output) > 0:
-                for state in output:
-                    states.append(state)
+            sl, il = ps_obj.action_gen(buses)
+            if len(sl) > 0:
+                for s, l in zip(sl, il):
+                    state_list.append(s)
+                    island_list.append(l)
             else:
                 print('Generator restoration failure: exiting')
                 return
 
         elif action_type == 'fixed load':
-            output = ps_obj.action_fixed_load(buses)
-            if len(output) > 0:
-                for state in output:
-                    states.append(state)
+            sl, il = ps_obj.action_fixed_load(buses)
+            if len(sl) > 0:
+                for s, l in zip(sl, il):
+                    state_list.append(s)
+                    island_list.append(l)
             else:
                 print('Fixed load restoration failure: exiting')
                 return
 
         elif action_type == 'dispatch load':
-            output = ps_obj.action_dispatch_load(buses)
-            if len(output) > 0:
-                for state in output:
-                    states.append(state)
+            sl, il = ps_obj.action_dispatch_load(buses)
+            if len(sl) > 0:
+                for s, l in zip(sl, il):
+                    state_list.append(s)
+                    island_list.append(l)
             else:
                 print('Dispatch load restoration failure: exiting')
                 return
@@ -107,4 +112,4 @@ def execute_sequence_2(ps_obj, sequence, action_map):
             print('Error: action (%s) does not exist' % action[0])
             return
 
-    return states
+    return state_list, island_list
