@@ -1,36 +1,37 @@
 import matplotlib.pyplot as plt
-import glob
+import numpy as np
 import pickle
 
 
-def visualize_cost_opt(folder, title, fig_num=1):
+def visualize_cost_opt(file, fig_num=1):
 
-    files = glob.glob('data/%s/*' % folder)
+    with open(file, 'rb') as f:
+        data = pickle.load(f)
 
-    plt.figure(fig_num)
+    # Find number of optimizations and runs per optimization
+    n_opt = len(data.keys())
+    n_iter = len(data['opt 0'].keys()) - 3
 
-    plt.grid()
-    plt.xlabel('Iteration')
-    plt.ylabel('Cost of best performer')
-    plt.title(title)
+    # Populate matrix of best total costs
+    matrix = np.empty((n_opt, n_iter))
+    for i, opt in enumerate(data.values()):
+        matrix[i, :] = opt['best_total_cost_store']
 
-    # Read data from folder
-    ymin = 99999
-    ymax = 700
-    for file in files:
-        with open(file, 'rb') as f:
-            data = pickle.load(f)
+    # Plot!
+    plt.figure(1)
+    for i in range(n_opt):
+        plt.plot(matrix[i, :])
 
-        # Best performance over iterations
-        if min(data[-1][1:]) < ymin:
-            ymin = min(data[-1][2:])
-        if ymax < max(data[-1][2:]) < ymax*5:
-            ymax = max(data[-1][2:])
+    plt.figure(2)
+    plt.plot(np.min(matrix, axis=0))
+    plt.plot(np.max(matrix, axis=0))
+    plt.plot(np.mean(matrix, axis=0), '--')
+    plt.legend(['Lower envelope', 'Upper envelope', 'Mean'])
 
-        plt.plot(data[-1][3:])
+    return matrix
 
-    # plt.ylim([ymin, ymax])
-    # plt.yscale('log')
+
+
 
 
 

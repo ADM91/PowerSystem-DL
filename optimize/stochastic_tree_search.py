@@ -5,32 +5,37 @@ from objective.objective_function import objective_function
 import numpy as np
 from copy import deepcopy
 from anytree import Walker
+from auxiliary.integrate_dict import integrate_dict
 
+# Instantiate tree walker for data collection
 w = Walker()
 
 
 def stochastic_tree_search(ps, tree, opt_iteration, res_iteration, method='cost', verbose=1, save_data=0, folder='test'):
 
-    # Data storage variable
-    all_data = []
+    # Data storage dictionary
+    data = {}
 
     # Creates a fixed dictionary of integer - action pairs
     action_map = create_action_map(ps.action_list)
 
     for i in range(opt_iteration):
 
-        # Reset data storage
-        states_store = []
-        time_store = []
-        energy_store = []
-        restoration_cost_store = []
-        sequence_store = []
-        best_total_cost = []
+        # Optimization data dictionary
+        data['opt %s' % i] = {}
+
+        # Reset key data storage variables
+        action_sequence_store = []
+        total_cost_store = []
+        best_total_cost_store = []
 
         # Cheapest restoration:
-        cheapest = 99999
+        cheapest = 999999
 
         for ii in range(res_iteration):
+
+            # Restoration simulation run dictionary
+            data['opt %s' % i]['run %s' % ii] = {}
 
             # Set parent as root
             par = tree.root
@@ -63,20 +68,22 @@ def stochastic_tree_search(ps, tree, opt_iteration, res_iteration, method='cost'
 
                         # Evaluate action (make sure I can revert the action)
                         if action[0] == 'line':
-                            output = ps.action_line(action[1])
+                            state_list, island_list = ps.action_line(action[1])
                         elif action[0] == 'fixed load':
-                            output = ps.action_fixed_load(action[1])
+                            state_list, island_list = ps.action_fixed_load(action[1])
                         elif action[0] == 'dispatch load':
-                            output = ps.action_dispatch_load(action[1])
+                            state_list, island_list = ps.action_dispatch_load(action[1])
                         elif action[0] == 'gen':
-                            output = ps.action_gen(action[1])
+                            state_list, island_list = ps.action_gen(action[1])
                         else:
                             print('Action string not recognized')
 
                         # Evaluate cost function and update child
-                        if len(output) > 0:
-                            [restore_time, energy, cost] = objective_function(output, ps.ideal_state)
+                        if len(state_list) > 0:
+                            [restore_time, energy, cost] = objective_function(state_list, ps.ideal_state)
                             child.cost = cost
+                            child.time = restore_time
+                            child.energy = energy
                             child.state = deepcopy(ps.current_state)
                             child.islands = deepcopy(ps.islands)
 
@@ -144,27 +151,57 @@ def stochastic_tree_search(ps, tree, opt_iteration, res_iteration, method='cost'
 
             # Evaluate the restoration!!!
             # Need to trace root to current parent (should be leaf) collect sequence and cost.
+            energy_store = {'lost load': [],
+                            'losses': [],
+                            'dispatch deviation': []}
+            cost_store = {'lost load': [],
+                          'losses': [],
+                          'dispatch deviation': [],
+                          'total': [],
+                          'combined total': []}
+            time_store = []
+            action_seq = []
+
             if par.is_leaf:
-                seq = w.walk(tree.root, par)
-                # print(seq)
-                total_cost = np.sum([node.cost['combined total'] for node in seq[-1]])
-                action_seq = [node.action for node in seq[-1]]
-                print(action_seq)
-                restoration_cost_store.append(total_cost)
-                sequence_store.append(action_seq)
-                if total_cost < cheapest:
-                    best_total_cost.append(total_cost)
-                    cheapest = total_cost
+
+                # Collect the nodes from root to the newest leaf
+                seq = w.walk(tree.root, par)[-1]
+
+                # Collect data from each node
+                for node in seq:
+                    action_seq.append(node.action)
+                    cost_store = integrate_dict(cost_store, node.cost)
+                    energy_store = integrate_dict(energy_store, node.energy)
+                    for time in node.time:
+                        time_store.append(time)
+                cost_store['combined total'] = np.sum(cost_store['combined total'])
+
+                # Place data in the data dictionary
+                data['opt %s' % i]['run %s' % ii]['cost'] = deepcopy(cost_store)
+                data['opt %s' % i]['run %s' % ii]['energy'] = deepcopy(energy_store)
+                data['opt %s' % i]['run %s' % ii]['time'] = deepcopy(time_store)
+                data['opt %s' % i]['run %s' % ii]['sequence'] = deepcopy(action_seq)
+
+                # Append to the optimization data lists
+                total_cost_store.append(deepcopy(cost_store['combined total']))
+                action_sequence_store.append(action_seq)
+                if cost_store['combined total'] < cheapest:
+                    best_total_cost_store.append(deepcopy(cost_store['combined total']))
+                    cheapest = deepcopy(cost_store['combined total'])
                 else:
-                    best_total_cost.append(cheapest)
+                    best_total_cost_store.append(cheapest)
+
             else:
                 print('Last node in run is somehow not a leaf node??!?!?!?!?')
 
-        # Save data to pickle
-        if save_data:
-            data = [restoration_cost_store, sequence_store, best_total_cost]
-            all_data.append(data)
-            with safe_open_w("data/%s/stochastic_opt_%s.pickle" % (folder, i), 'wb') as output_file:
-                pickle.dump(data, output_file)
+        # Save optimization run data to optimization dictionary
+        data['opt %s' % i]['action_sequence_store'] = action_sequence_store
+        data['opt %s' % i]['total_cost_store'] = total_cost_store
+        data['opt %s' % i]['best_total_cost_store'] = best_total_cost_store
 
-    return all_data, action_map
+    # Save data dictionary to file!
+    if save_data:
+        with safe_open_w("data/%s/optimization_dict.pickle" % folder, 'wb') as output_file:
+            pickle.dump(data, output_file)
+
+    return data, action_map

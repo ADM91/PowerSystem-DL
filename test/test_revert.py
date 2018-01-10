@@ -1,27 +1,7 @@
 from copy import deepcopy
 from optimize.execute_sequence import execute_sequence_2
 from objective.objective_function import objective_function
-from numpy import float64
-
-
-def iterable(a):
-    if type(a) in [int, float, float64]:
-        return [a]
-    else:
-        return a
-
-
-def integrate_dict(dict1, dict2):
-
-    # Combines the contents of two similar dictionaries
-    for key in dict1.keys():
-        if key in dict2.keys():
-            for item in iterable(dict2[key]):
-                dict1[key].append(item)
-        else:
-            print('Error: dictionary keys do not match!!!')
-
-    return dict1
+from auxiliary.integrate_dict import integrate_dict
 
 
 def test_revert(ps, actions, action_map):

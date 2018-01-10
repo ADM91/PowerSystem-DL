@@ -151,7 +151,7 @@ import numpy as np
 from anytree import RenderTree
 from oct2py import octave
 from matplotlib import pyplot as plt
-from auxiliary.config import mp_opt, line_ratings, deconstruct_7
+from auxiliary.config import mp_opt, line_ratings, deconstruct_1, deconstruct_2
 from optimize.RestorationTree import RestorationTree
 from optimize.execute_sequence import execute_sequence
 from optimize.random_search import random_search_opt
@@ -174,30 +174,26 @@ base_result = octave.runpf(base_case, mp_opt)
 # Instantiate PowerSystem class
 ps = PowerSystem(base_result,
                  spad_lim=10,
-                 deactivated=deconstruct_7,
+                 deactivated=deconstruct_1,
                  verbose=0,
                  verbose_state=0)
 
 action_map = create_action_map(ps.action_list)
 
-# Revert testing
-ps.reset()
-# ps.action_line([2, 4])
-# ps.action_line([4, 5])
-[state_store, island_store, time_store, energy_store, cost_store] = test_revert(ps, [1,1,1,1,1,1,1,1,3,3,3,3,3,3,3,3,3,0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,2,2,2], action_map)
 
-# Perform simple restoration - seems to work with my code simplifications
-sequence = [2, 3, 0, 1]
-[state_list, island_list, time_store, energy_store, cost_store] = test_sequence(ps, sequence, action_map)
+# Perform restoration
+sequence = [2,3,4,5,6,7,8,9,10,0,1]
+a = 1
+[state_list, island_list, time_store, energy_store, cost_store] = test_sequence(ps, 9, action_map)
+action_map[a]
+ps.current_state['real inj'][:, ]
+ps.current_state['fixed load']
+ps.current_state['bus voltage angle']
 visualize_state(ps.ideal_case, ps.ideal_state, state_list)
 
 
-
-# Checking if original state stays the same throughout the test
+# Plot the restoration variables
 # ----------------------------------------------------------------
-
-visualize_state(ps.ideal_case, ps.ideal_state, state_store)
-
 plt.plot(cost_store['total'])
 plt.plot(cost_store['lost load'])
 plt.plot(cost_store['losses'])
@@ -209,57 +205,23 @@ plt.plot(energy_store['losses'])
 
 
 
-# Revealed bug: actions do not always yield same results after reversion.  Its the same after first reversion, but
-# Changes after third. What the hell?
-# Maybe the ideal state changes?? Shouldn't, don't think it does.
-# I get basically the same result for EVERY action! The revert function is deeply flawed, this is important.
-
 # Test stochastic tree search
 # -------------------------------------
 tree = RestorationTree(ps)
 all_data, action_map = stochastic_tree_search(ps,
                                               tree,
-                                              opt_iteration=1,
-                                              res_iteration=1,
-                                              method='cost',
+                                              opt_iteration=30,
+                                              res_iteration=50,
+                                              method='rank',
                                               verbose=1,
-                                              save_data=0,
-                                              folder='Tree-search-cost-d5')
-
-[state_list, time_store, energy_store, cost_store] = test_sequence(ps, [2, 0, 1, 3], action_map)
-[state_store, time_store, energy_store, cost_store] = test_revert(ps, [2, 2, 2, 2, 2], action_map)
-
-
-visualize_state(ps.ideal_case, ps.ideal_state, state_list)
-
-
-# visualize_cost_opt('Tree-search-cost-d1', title='Tree search: Case 1', fig_num=3)
+                                              save_data=1,
+                                              folder='Tree-search-cost-d1')
 
 # -------------------------------------
-
-
 # Random search optimizer
 data = random_search_opt(ps, opt_iteration=1, res_iteration=1, verbose=1, save_data=0, folder='test')
 
-
-
-
 # -------------------------------------
-
-tree = RestorationTree(ps)
-tree.action_list
-tree.generate_tree()
-RenderTree(tree.root)
-
-
-
-# Perform single sequence
-n_actions = int(np.sum([len(item) for item in ps.action_list.values()]))
-sequence = np.random.permutation(n_actions)
-action_sequence = decode_sequence(ps.action_list, sequence)
-states = execute_sequence(ps, action_sequence)
-animation = visualize_state(base_case, ps.ideal_state, states, fig_num=1, frames=5, save=True)
-
 
 # Perform random search optimization
 output = random_search_opt(ps,

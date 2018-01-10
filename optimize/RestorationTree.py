@@ -1,5 +1,6 @@
 from anytree import Node, RenderTree
 import numpy as np
+from copy import copy, deepcopy
 
 
 class RestorationTree:
@@ -8,12 +9,13 @@ class RestorationTree:
         n_actions = int(np.sum([len(item) for item in ps.action_list.values()]))
         self.action_list = np.arange(n_actions)
         self.root = Node('root',
-                         state=ps.current_state,
-                         islands=ps.islands,
+                         state=deepcopy(ps.current_state),
+                         islands=deepcopy(ps.islands),
                          actions_remaining=np.arange(n_actions))
         self.queue = [self.root]
 
     def generate_tree(self):
+        # Can probably delete this method, won't be generating entire tree
 
         # Generate the tree!
         count = 0
@@ -39,6 +41,8 @@ class RestorationTree:
                                 state=None,
                                 islands=None,
                                 cost=0,
+                                time=[],
+                                energy=[],
                                 action=action,
                                 actions_remaining=actions_remaining)
                 self.queue.append(new_node)
