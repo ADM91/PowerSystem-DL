@@ -1,6 +1,7 @@
 from copy import deepcopy
 from pprint import PrettyPrinter
 import numpy as np
+from copy import copy, deepcopy
 import oct2py
 from oct2py import octave
 from auxiliary.config import mp_opt
@@ -107,13 +108,17 @@ class PowerSystem(object):
                                      'lines': []}
 
     def revert(self, state, islands):
-        """ Restores the system using previous islands, state, and blackout connection variables"""
+        """ Restores the system using previous islands and state data"""
 
         # Restore islands
-        self.islands = islands
+        self.islands = copy(islands)
 
         # Get current state
-        self.current_state = state
+        self.current_state = copy(state)
+
+        # print('After revert (within the class)')
+        # print(self.current_state['real inj'][17, [2, 4]])
+        # print(self.islands['0']['branch'][17, 10:13])
 
     def generate_action_list(self):
 
@@ -570,6 +575,10 @@ class PowerSystem(object):
             # Need to generate a list of states here, there are several steps performed
             if self.verbose:
                 print('Case: within energized island')
+
+            # print('Before action execution (within the class)')
+            # print(self.current_state['real inj'][17, [2, 4]])
+            # print(self.islands['0']['branch'][17, 10:13])
             state_list, island_list = within_energized(self, island_1, bus_ids, self.spad_lim)
 
         # Deprecating the within_blackout function, its not practical to connect lines within blackout

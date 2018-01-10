@@ -55,7 +55,15 @@ def test_revert(ps, actions, action_map):
         # Evaluate objective function for action
         [time, energy, cost] = objective_function(intermediate_states, ideal_state)
 
+        # print('Arguments to revert function')
+        # print(state['real inj'][17, [2, 4]])
+        # print(islands['0']['branch'][17, 10:13])
+
         ps.revert(state, islands)
+
+        # print('After revert (outside the class)')
+        # print(ps.current_state['real inj'][17, [2, 4]])
+        # print(ps.islands['0']['branch'][17, 10:13])
 
         # Append inside dictionary
         for t in time:

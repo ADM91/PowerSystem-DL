@@ -1,12 +1,24 @@
 import numpy as np
 from auxiliary.set_opf_constraints import set_opf_constraints
 from system.take_snapshot import take_snapshot
+from copy import deepcopy
 
 
 def within_energized(ps, island_1, bus_ids, spad_lim):
 
+    # print('Before snapshot is taken (outside the class)')
+    # print(ps.current_state['real inj'][17, [2, 4]])
+    # print(ps.islands['0']['branch'][17, 10:13])
+
     # Take preliminary snapshot of the system
     state_list, island_list = take_snapshot(ps, 'Preliminary state', [], [])
+
+    # print('After evaluate state function (outside the class)')
+    # print(ps.current_state['real inj'][17, [2, 4]])
+    # print(state_list[-1]['real inj'][17, [2, 4]])
+    # print(ps.islands['0']['branch'][17, 10:13])
+    # print(island_list[-1]['0']['branch'][17, 10:13])
+    # print('\n')
 
     # Set opf constraint to SPA diff
     # Make sure branch in question is on island branch matrix (isn't if each bus is added via blackout connection)
@@ -53,6 +65,6 @@ def within_energized(ps, island_1, bus_ids, spad_lim):
     state_list, island_list = take_snapshot(ps, title, state_list, island_list)
 
     # Ensure that current state variable has the most recent information
-    ps.current_state = state_list[-1]
+    # ps.current_state = deepcopy(state_list[-1])
 
     return state_list, island_list

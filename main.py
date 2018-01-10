@@ -6,11 +6,11 @@
 # TODO: study effect of changing load shedding objective use matpower: function modcost
 # TODO: Implement genetic optimization
 # TODO: still have issue with connecting between blackout and energized buses... dammmmn
-# TODO: Build a sequence tester, and visualizer (will help validate the optimizations)
 # TODO: Create a consistent data format returned by each optimizer - so that I can use a function to compare results
 # TODO: Improve vis function to do comprehensive visualization of optimization results.
 # TODO: Move testing to IEEE 30 bus network, its more realistic but still small enough to not take too much computing
 # TODO: update the random search algorithm to work with the action map dictionary instead of sequence decoder function
+# TODO: Assign ramp rate to each dispatchable load and incorporate in objective function
 
 
 # ---------Old/Fixed Concerns------------
@@ -90,6 +90,18 @@
 # before connection
 # after connection (the generator is enabled in the gen matrix)
 
+# Do I really need islands_evaluated? Can't I just maintain islands with matpower opf result with additional info?
+# Save the islands data along with state when performing actions, might be useful for debugging...
+# -Fixed- removed a lot of unnecessary code and complexity.
+
+# So why is the cost wayy different in the random search optimization and the tree search?
+# May have been fixed already, but would like to verify with a sequence tester... this is next on the list
+# Discovered that this is because after action is reverted, the next action gets distorted, still unsure
+# of the mechanism causing this bug.
+# -Fixed- nightmare to find, but found that the islands variable passed to the revert function is mutable, so when
+# action is performed, the islands dictionary kept the change, so action was effectively never undone!  Fixed with copy
+
+
 # ---------Current Concerns------------
 
 # If conditions are too extreme (Too many lines removed etc.) I get crazy spa diffs
@@ -114,18 +126,8 @@
 # Restoration takes about 5 seconds on 14 bus system... this is too slow.
 # Look at using a more efficient opf. Maybe benchmark them and include in thesis.
 
-# So why is the cost wayy different in the random search optimization and the tree search?
-# Lets take a look at the objective function:
-# Input: a list of states and ideal state for reference
-# Takes two consecutive states and finds generation difference
-# Calculates ramp time between these states
-# Calculates energy not served, generator deviation, loss difference over this time period
-# Calculates cost of energy values
-# Iterates for every consecutive pair of states in state list and saves data
-# Calculates cumulative cost
-# May have been fixed already, but would like to verify with a sequence tester... this is next on the list
-
-# I think with the 14 bus network, the lowest hanging fruit is always the best option, therefore the tree search is
+# I think with the 14 bus network, the lowest hanging fruit is always the best option (terms of cost),
+# therefore the tree search is
 # great.  This might not be true on larger networks (the best option may be to create a route directly to a lost load).
 # I can test these ideas by designing a degraded state on larger networks.
 
@@ -134,24 +136,22 @@
 #   - restoration time
 #   - lost load
 #   - losses
-# WIP
+# - Show that strategies are formed... look at best performing results and try to learn the strategy they use.
+# - In comparing optimizations we care about: time, computing power, all in context of progress of cost minimization.
 
 # Currently, I have an issue when connecting energized island to blackout bus... a duplicate bus gets generated in the
 # island bus matrix.  The voltage angle and magnitude differ, and one has lagrange multipliers. This means that when
 # I run the island evaluation, it fails.
-# This must be caused by a bookkeeping error.  I need to look diligently through the line connection code.
+# This must be caused by a bookkeeping error.  I need to look diligently through the line connection code. FIXING NOW
 
-# Do I really need islands_evaluated? Can't I just maintain islands with matpower opf result with additional info?
-# Save the islands data along with state when performing actions, might be useful for debugging...
 
 # ---------Testing------------
 
 import numpy as np
 from anytree import RenderTree
 from oct2py import octave
-from auxiliary.config import mp_opt, \
-    line_ratings, \
-    deconstruct_7
+from matplotlib import pyplot as plt
+from auxiliary.config import mp_opt, line_ratings, deconstruct_7
 from optimize.RestorationTree import RestorationTree
 from optimize.execute_sequence import execute_sequence
 from optimize.random_search import random_search_opt
@@ -180,84 +180,21 @@ ps = PowerSystem(base_result,
 
 action_map = create_action_map(ps.action_list)
 
+# Revert testing
+ps.reset()
+# ps.action_line([2, 4])
+# ps.action_line([4, 5])
+[state_store, island_store, time_store, energy_store, cost_store] = test_revert(ps, [1,1,1,1,1,1,1,1,3,3,3,3,3,3,3,3,3,0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,2,2,2], action_map)
+
 # Perform simple restoration - seems to work with my code simplifications
 sequence = [2, 3, 0, 1]
 [state_list, island_list, time_store, energy_store, cost_store] = test_sequence(ps, sequence, action_map)
 visualize_state(ps.ideal_case, ps.ideal_state, state_list)
 
-# Revert testing
-ps.reset()
-ps.action_line([2, 4])
-ps.action_line([4, 5])
-[state_store, island_store, time_store, energy_store, cost_store] = test_revert(ps, [3,3,3,3,3,3,3,3,3], action_map)
+
 
 # Checking if original state stays the same throughout the test
 # ----------------------------------------------------------------
-from matplotlib import pyplot as plt
-from objective.objective_function import objective_function
-[time, energy, cost] = objective_function(state_store, ps.ideal_state)  # Everything is zero because time between states is zero
-plt.plot(energy['dispatch deviation'])
-# ----------------------------------------------------------------
-# Looks like it does! That means the information is not translated correctly to the ps model using ps.revert
-
-# Need to investigate if the revert inconsistency occurs if I revert back not to the ideal case - it does
-# Need to look at the actual states and figure out where the inconsistencies are - then look for how that might happen
-
-# Detect differences between states (real injection)
-# Round 1
-state_store[0]  # Prelim state (should be same as initial)
-state_store[1]  # Rescheduling for connection of branch 10 - 11'
-state_store[0]['real inj'] - state_store[1]['real inj']
-state_store[2]  # Solving state after line connection
-state_store[1]['real inj'] - state_store[2]['real inj']
-
-# Round 2
-state_store[3]  # Prelim state (should be same as initial)
-state_store[4]  # Rescheduling for connection of branch 10 - 11'
-state_store[3]['real inj'] - state_store[4]['real inj']
-state_store[5]  # Solving state after line connection
-state_store[4]['real inj'] - state_store[5]['real inj']
-
-# Check between rounds - SAME
-state_store[0]['real inj'] - state_store[3]['real inj']
-state_store[1]['real inj'] - state_store[4]['real inj']
-state_store[2]['real inj'] - state_store[5]['real inj']
-
-# Round 3
-state_store[6]  # Prelim state (should be same as initial)
-state_store[7]  # Rescheduling for connection of branch 10 - 11'
-state_store[6]['real inj'] - state_store[7]['real inj']
-state_store[8]  # Solving state after line connection
-state_store[7]['real inj'] - state_store[8]['real inj']
-
-# Check between rounds - NOT THE SAME
-state_store[3]['real inj'] - state_store[6]['real inj']  # Preliminary states not the same???
-state_store[4]['real inj'] - state_store[7]['real inj']
-state_store[5]['real inj'] - state_store[8]['real inj']
-
-
-#
-#
-# state_store[4]  # Back to reference state
-# state_store[3]['real inj'] - state_store[4]['real inj']
-#
-# state_store[0]['real inj'] - state_store[4]['real inj']  # Good, reference state is the same
-#
-# state_store[6]  # Reschedule for connection
-# state_store[7]  # State after connection (end)
-# (state_store[6]['real inj'] - state_store[7]['real inj']) - (state_store[2]['real inj'] - state_store[3]['real inj'])  # Good change remains the same
-# (state_store[10]['real inj'] - state_store[11]['real inj']) - (state_store[2]['real inj'] - state_store[3]['real inj'])  # NOT GOOD, the change is different
-#
-# # Check rescedule for connection
-# state_store[5]['real inj'] - state_store[9]['real inj']  # Good, have same prelim state before gen redispatch
-#
-# # Check redispatch state
-# state_store[6]['real inj'] - state_store[10]['real inj']  # Bad, redispatch states differ...
-
-
-# Need to look at how the evaluated islands change, might shed some light on the problem, check out ps code to check
-# for other dependencies
-
 
 visualize_state(ps.ideal_case, ps.ideal_state, state_store)
 

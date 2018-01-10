@@ -69,6 +69,11 @@ def execute_sequence_2(ps_obj, sequence, action_map):
         buses = action_map[action][1]
 
         if action_type == 'line':
+
+            print('Before action executution (outside the class)')
+            print(ps_obj.current_state['real inj'][17, [2, 4]])
+            print(ps_obj.islands['0']['branch'][17, 10:13])
+
             sl, il = ps_obj.action_line(buses)
             if len(sl) > 0:
                 for s, l in zip(sl, il):
