@@ -31,6 +31,7 @@ class PowerSystem(object):
         self.verbose = verbose
         self.verbose_state = verbose_state
         self.spad_lim = spad_lim
+        self.current_state = None
 
         self.island_map = {-1: 'blackout',
                            0: '0',
@@ -209,18 +210,11 @@ class PowerSystem(object):
 
                 # Reset island data to the evaluated result
                 # Octave object/dynamic does not work, so we have to reconstruct the mpc from scratch (not that hard)
-                # mpc = dict()
                 island['bus'] = result['bus']
                 island['branch'] = result['branch']
                 island['gen'] = result['gen']
                 island['gencost'] = gencost
                 island['losses'] = result['losses']
-                # mpc['slack_ind'] = island['slack_ind']
-                # mpc['baseMVA'] = island['baseMVA']
-                # mpc['is_gen'] = island['is_gen']
-                # mpc['is_load'] = island['is_load']
-                # mpc['bus_name'] = island['bus_name']
-                # mpc['id'] = island['id']
                 self.islands[key] = island
 
             else:  # Blackout area gets returned as is
@@ -559,7 +553,7 @@ class PowerSystem(object):
         ind = np.all(self.action_list['line'] == bus_ids, axis=1)
         if np.sum(ind) != 1:
             print('Buses not on action list!')
-            return
+            return [], []
 
         # What islands do the buses reside on? First evaluate current state
         bus_ind_1 = (self.current_state['bus voltage angle'][:, 0] == bus_ids[0]).reshape(-1)
@@ -586,23 +580,39 @@ class PowerSystem(object):
             # Don't need to create a state list in this case, just record whats connected!
             if self.verbose:
                 print('Case: within blackout area')
-            return []
+            return [], []
 
         elif island_1 != island_2 and (island_1 != -1 and island_2 != -1):
             if self.verbose:
                 print('Case: Connecting energized islands %s and %s \n' % (island_1, island_2))
+
             state_list, island_list = between_islands(self, island_1, island_2)
 
         elif island_1 != island_2 and (island_1 == -1 or island_2 == -1):
             # There should be state collection here
             if self.verbose:
                 print('Case: connecting non-energized bus to energized island')
+
+            # print('Case: connecting non-energized bus to energized island')
+            #
+            # print('Island %s' % self.islands[self.island_map[island_1]]['id'])
+            # print('Island %s' % self.islands[self.island_map[island_2]]['id'])
+            # print(island_1)
+            # print(island_2)
+            # print(bus_ind_1)
+            # print(bus_ind_2)
+            # print(bus_ids)
+            # print(self.islands[self.island_map[island_1]]['bus'][:, [0, 1, 2, 3, 8, 6]])
+            # if self.current_state:
+            #     print(self.current_state['bus voltage angle'])
+                # print(self.current_state['real inj'])
+
             state_list, island_list = between_blackout_energized(self, island_1, island_2, bus_ids)
 
         else:
             if self.verbose:
                 print('SOMETHING IS NOT RIGHT')
-            return []
+            return [], []
 
         # Ensure that current state variables has the most recent information
         self.current_state = state_list[-1]
@@ -616,7 +626,7 @@ class PowerSystem(object):
         ind = self.action_list['fixed load'] == bus_id
         if np.sum(ind) != 1:
             print('Load not on action list!')
-            return
+            return [], []
 
         # Take preliminary snapshot of the system
         state_list, island_list = take_snapshot(self, 'Preliminary state', [], [])
@@ -627,7 +637,7 @@ class PowerSystem(object):
 
         if island == -1:
             print('Can not activate fixed load within blackout area!')
-            return []
+            return [], []
 
         # Set the load on the island bus matrix
         island_bus_ind = (self.islands[self.island_map[island]]['bus'][:, 0] == bus_id).reshape(-1)
@@ -653,7 +663,7 @@ class PowerSystem(object):
         ind = self.action_list['dispatch load'] == bus_id
         if np.sum(ind) != 1:
             print('Dispatchable load not on action list!')
-            return
+            return [], []
 
         # Take preliminary snapshot of the system
         state_list, island_list = take_snapshot(self, 'Preliminary state', [], [])
@@ -664,7 +674,7 @@ class PowerSystem(object):
 
         if island == -1:
             print('Can not activate dispatchable load within blackout area!')
-            return []
+            return [], []
 
         # Activate the dispatchable load
         # I have to be careful to select the load not generator (a generator may reside on the same bus)
@@ -691,7 +701,7 @@ class PowerSystem(object):
         ind = self.action_list['gen'] == bus_id
         if np.sum(ind) != 1:
             print('Load not on action list!')
-            return
+            return [], []
 
         # Take preliminary snapshot of the system
         state_list, island_list = take_snapshot(self, 'Preliminary state', [], [])
@@ -702,7 +712,7 @@ class PowerSystem(object):
 
         if island == -1:
             print('Can not activate generator within blackout area!')
-            return []
+            return [], []
 
         # Activate the generator
         # I have to be careful to select the generator (a dispatchable load may reside on the same bus)

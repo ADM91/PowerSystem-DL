@@ -94,6 +94,6 @@ def between_blackout_energized(ps, island_1, island_2, bus_ids):
     state_list, island_list = take_snapshot(ps, title, state_list, island_list)
 
     # Ensure that current state variable has the most recent information
-    ps.current_state = state_list[-1]
+    # ps.current_state = state_list[-1]
 
     return state_list, island_list

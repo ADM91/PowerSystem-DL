@@ -151,7 +151,7 @@ import numpy as np
 from anytree import RenderTree
 from oct2py import octave
 from matplotlib import pyplot as plt
-from auxiliary.config import mp_opt, line_ratings, deconstruct_1, deconstruct_2
+from auxiliary.config import mp_opt, line_ratings, deconstruct_1, deconstruct_3
 from optimize.RestorationTree import RestorationTree
 from optimize.execute_sequence import execute_sequence
 from optimize.random_search import random_search_opt
@@ -163,6 +163,9 @@ from visualize.visualize_cost_opt import visualize_cost_opt
 from visualize.visualize_state import visualize_state
 from test.test_revert import test_revert
 from optimize.action_map import create_action_map
+from auxiliary.open_path import safe_open_w
+import pickle
+
 
 np.set_printoptions(precision=2)
 
@@ -174,14 +177,43 @@ base_result = octave.runpf(base_case, mp_opt)
 # Instantiate PowerSystem class
 ps = PowerSystem(base_result,
                  spad_lim=10,
-                 deactivated=deconstruct_1,
+                 deactivated=deconstruct_3,
                  verbose=0,
                  verbose_state=0)
 
 action_map = create_action_map(ps.action_list)
 
 
+# Test stochastic tree search
+# -------------------------------------
+tree = RestorationTree(ps)
+
+ps.reset()
+all_data, action_map = stochastic_tree_search(ps,
+                                              tree,
+                                              opt_iteration=30,
+                                              res_iteration=50,
+                                              method='inverse cost',
+                                              verbose=1,
+                                              save_data=1,
+                                              folder='Tree-search-uniform-d3')
+
+# matrix = visualize_cost_opt('data/Tree-search-cost-d1/optimization_dict.pickle', fig_num=3)
+files = ['data/Tree-search-cost-d1/optimization_dict.pickle',
+         'data/Tree-search-invcost-d1/optimization_dict.pickle',
+         'data/Tree-search-rank-d1/optimization_dict.pickle',
+         'data/Tree-search-invrank-d1/optimization_dict.pickle',
+         'data/Tree-search-uniform-d1/optimization_dict.pickle']
+legend_names = ['cost', 'inverse cost', 'rank', 'inverse rank', 'uniform']
+title = 'Degraded state 1'
+visualize_cost_opt(files, legend_names, title, fig_num=1)
+
+
+with safe_open_w("data/tree-d1.pickle", 'wb') as output_file:
+    pickle.dump(tree, output_file)
+
 # Perform restoration
+# ----------------------------------------------------------------
 sequence = [2,3,4,5,6,7,8,9,10,0,1]
 a = 1
 [state_list, island_list, time_store, energy_store, cost_store] = test_sequence(ps, 9, action_map)
@@ -205,17 +237,7 @@ plt.plot(energy_store['losses'])
 
 
 
-# Test stochastic tree search
-# -------------------------------------
-tree = RestorationTree(ps)
-all_data, action_map = stochastic_tree_search(ps,
-                                              tree,
-                                              opt_iteration=30,
-                                              res_iteration=50,
-                                              method='rank',
-                                              verbose=1,
-                                              save_data=1,
-                                              folder='Tree-search-cost-d1')
+
 
 # -------------------------------------
 # Random search optimizer

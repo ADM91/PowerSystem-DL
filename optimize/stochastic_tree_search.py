@@ -97,7 +97,7 @@ def stochastic_tree_search(ps, tree, opt_iteration, res_iteration, method='cost'
                                 print('Action failure')
 
                         # Revert to parent state so we can test next child
-                        ps.revert(par.state, par.islands)  # deprecating the blackout connection dictionary
+                        ps.revert(deepcopy(par.state), deepcopy(par.islands))  # deprecating the blackout connection dictionary
 
                 # Choose next parent stochastically!
                 # If no valid children exist:
@@ -112,9 +112,20 @@ def stochastic_tree_search(ps, tree, opt_iteration, res_iteration, method='cost'
                     # Select a sibling of the shitty parent
                     if method == 'cost':
                         probabilities = (1 / cost_store) / np.sum(1 / cost_store)
+                    elif method == 'inverse cost':
+                        probabilities = cost_store / np.sum(cost_store)
                     elif method == 'rank':
-                        rank = np.argsort(cost_store)
+                        temp = cost_store.argsort()
+                        rank = np.empty_like(temp)
+                        rank[temp] = np.arange(len(cost_store))
                         probabilities = (1 / (rank+1)) / np.sum(1 / (rank+1))
+                    elif method == 'uniform':
+                        probabilities = np.ones(cost_store.shape)/len(cost_store)
+                    elif method == 'inverse rank':
+                        temp = cost_store.argsort()
+                        rank = np.empty_like(temp)
+                        rank[temp] = np.arange(len(cost_store))
+                        probabilities = (rank+1) / np.sum(rank+1)
                     else:
                         print('Unrecognized method')
                         return
@@ -126,13 +137,25 @@ def stochastic_tree_search(ps, tree, opt_iteration, res_iteration, method='cost'
 
                 # If we have valid children:
                 else:
-                    cost_store = np.array([child.cost['combined total'] for child in par.children])
                     child_store = [child for child in par.children]
+                    cost_store = np.array([child.cost['combined total'] for child in child_store])
+
                     if method == 'cost':
                         probabilities = (1 / cost_store) / np.sum(1 / cost_store)
+                    elif method == 'inverse cost':
+                        probabilities = cost_store / np.sum(cost_store)
                     elif method == 'rank':
-                        rank = np.argsort(cost_store)
+                        temp = cost_store.argsort()
+                        rank = np.empty_like(temp)
+                        rank[temp] = np.arange(len(cost_store))
                         probabilities = (1 / (rank+1)) / np.sum(1 / (rank+1))
+                    elif method == 'uniform':
+                        probabilities = np.ones(cost_store.shape)/len(cost_store)
+                    elif method == 'inverse rank':
+                        temp = cost_store.argsort()
+                        rank = np.empty_like(temp)
+                        rank[temp] = np.arange(len(cost_store))
+                        probabilities = (rank+1) / np.sum(rank+1)
                     else:
                         print('Unrecognized method')
                         return
@@ -147,7 +170,7 @@ def stochastic_tree_search(ps, tree, opt_iteration, res_iteration, method='cost'
                         print('Child selected: %s' % par.name)
 
                 # Revert power system to chosen child or sibling!
-                ps.revert(par.state, par.islands)
+                ps.revert(deepcopy(par.state), deepcopy(par.islands))
 
             # Evaluate the restoration!!!
             # Need to trace root to current parent (should be leaf) collect sequence and cost.
