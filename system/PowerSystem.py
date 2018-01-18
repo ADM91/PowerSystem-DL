@@ -3,7 +3,7 @@ from pprint import PrettyPrinter
 import numpy as np
 from copy import copy, deepcopy
 import oct2py
-from oct2py import octave
+from oct2py import Oct2Py
 from auxiliary.config import mp_opt
 from auxiliary.set_opf_constraints import set_opf_constraints
 from system.line_connection_cases.between_blackout_energized import between_blackout_energized
@@ -24,6 +24,10 @@ def make_iterable(obj):
 class PowerSystem(object):
 
     def __init__(self, ideal_case, spad_lim=10, deactivated=1, verbose=1, verbose_state=0):
+
+        # Instantiate octave instance
+        self.octave = Oct2Py()
+        self.octave.addpath('/home/alexander/Documents/MATLAB/matpower6.0')
 
         self.pp = PrettyPrinter(indent=4)
 
@@ -157,12 +161,12 @@ class PowerSystem(object):
         # The state arrays within the dictionary contain: id, values, island, status
         # Note that I am deepcopying the ideal caase
 
-        gen_ind = (octave.isload(self.ideal_case['gen']) == 0).reshape((-1,))
+        gen_ind = (self.octave.isload(self.ideal_case['gen']) == 0).reshape((-1,))
         real_gen = deepcopy(self.ideal_case['gen'][gen_ind, :])
         real_gen = real_gen[:, 0:4]
         real_gen[:, 1:] = np.nan
 
-        d_load_ind = (octave.isload(self.ideal_case['gen']) == 1).reshape((-1,))
+        d_load_ind = (self.octave.isload(self.ideal_case['gen']) == 1).reshape((-1,))
         dispatch_load = deepcopy(self.ideal_case['gen'][d_load_ind, :])  # Bus, active power
         dispatch_load = dispatch_load[:, 0:4]
         dispatch_load[:, 1:] = np.nan
@@ -205,11 +209,11 @@ class PowerSystem(object):
             if island['is_gen'] and island['is_load']:
                 # Evaluate the energized island with opf constraints
                 gencost = deepcopy(island['gencost'])
-                result = octave.runopf(island, mp_opt)
+                result = self.octave.runopf(island, mp_opt)
                 result = self.get_losses(result)
 
                 # Reset island data to the evaluated result
-                # Octave object/dynamic does not work, so we have to reconstruct the mpc from scratch (not that hard)
+                # self.octave object/dynamic does not work, so we have to reconstruct the mpc from scratch (not that hard)
                 island['bus'] = result['bus']
                 island['branch'] = result['branch']
                 island['gen'] = result['gen']
@@ -239,7 +243,7 @@ class PowerSystem(object):
             if island['is_gen'] and island['is_load']:
 
                 # Fill in generator states for island i
-                gen_ind = make_iterable(octave.isload(island['gen']) == 0).reshape((-1,))
+                gen_ind = make_iterable(self.octave.isload(island['gen']) == 0).reshape((-1,))
                 if self.verbose_state:
                     print('\nGenerator true:')
                     print(gen_ind)
@@ -251,7 +255,7 @@ class PowerSystem(object):
                     state['real gen'][ind1, 3] = island['gen'][gen_ind, 7][ind2]  # Gen status
 
                 # Fill in the dispatchable load states for island i
-                d_load_ind = make_iterable(octave.isload(island['gen']) == 1).reshape((-1,))
+                d_load_ind = make_iterable(self.octave.isload(island['gen']) == 1).reshape((-1,))
                 if self.verbose_state:
                     print('\nDispatchable load true:')
                     print(d_load_ind)
@@ -305,7 +309,7 @@ class PowerSystem(object):
 
                 # Fill in generator states for island i
                 if len(island['gen']) > 0:
-                    gen_ind = make_iterable(octave.isload(island['gen']) == 0).reshape((-1,))
+                    gen_ind = make_iterable(self.octave.isload(island['gen']) == 0).reshape((-1,))
                     for bus_id in island['gen'][gen_ind, 0]:
                         ind1 = (state['real gen'][:, 0] == bus_id).reshape((-1,))
                         state['real gen'][ind1, 1] = 0
@@ -313,7 +317,7 @@ class PowerSystem(object):
                         state['real gen'][ind1, 3] = 0  # Gen status
 
                     # Fill in dispatchable load states for island i
-                    d_load_ind = make_iterable(octave.isload(island['gen']) == 1).reshape((-1,))
+                    d_load_ind = make_iterable(self.octave.isload(island['gen']) == 1).reshape((-1,))
                     for bus_id in island['gen'][d_load_ind, 0]:
                         ind1 = (state['dispatch load'][:, 0] == bus_id).reshape((-1,))
                         state['dispatch load'][ind1, 1] = 0
@@ -397,7 +401,7 @@ class PowerSystem(object):
             print('\nExtracting islands \n')
 
         # Run the island detection function
-        islands = octave.extract_islands(case)
+        islands = self.octave.extract_islands(case)
 
         if self.verbose:
             for i in islands:
@@ -489,7 +493,7 @@ class PowerSystem(object):
         gen_ind = np.isnan(state['real gen'][:, 1]).reshape((-1,))
         gen_id = state['real gen'][gen_ind, 0]
         for g_id in gen_id:
-            gen_ind = (octave.isload(self.ideal_case['gen']) == 0).reshape(-1)
+            gen_ind = (self.octave.isload(self.ideal_case['gen']) == 0).reshape(-1)
             gen = self.ideal_case['gen'][gen_ind, :]
             gencost = self.ideal_case['gencost'][gen_ind, :]
             ind1 = (gen[:, 0] == g_id).reshape(-1,)
@@ -502,7 +506,7 @@ class PowerSystem(object):
         load_ind = np.isnan(state['dispatch load'][:, 1]).reshape((-1,))
         load_id = state['dispatch load'][load_ind, 0]
         for g_id in gen_id:
-            gen_ind = (octave.isload(self.ideal_case['gen']) == 1).reshape(-1)  # index of dispatchable loads
+            gen_ind = (self.octave.isload(self.ideal_case['gen']) == 1).reshape(-1)  # index of dispatchable loads
             gen = self.ideal_case['gen'][gen_ind, :]
             gencost = self.ideal_case['gencost'][gen_ind, :]
             ind1 = (gen[:, 0] == g_id).reshape(-1,)
@@ -678,7 +682,7 @@ class PowerSystem(object):
 
         # Activate the dispatchable load
         # I have to be careful to select the load not generator (a generator may reside on the same bus)
-        load_ind = np.where(octave.isload(self.islands[self.island_map[island]]['gen']) == 1)[0]  # indicies of loads
+        load_ind = np.where(self.octave.isload(self.islands[self.island_map[island]]['gen']) == 1)[0]  # indicies of loads
         bus_ind = np.where(self.islands[self.island_map[island]]['gen'][load_ind, 0] == bus_id)  # index to gen_ind
         self.islands[self.island_map[island]]['gen'][load_ind[bus_ind], 7] = 1
 
@@ -716,7 +720,7 @@ class PowerSystem(object):
 
         # Activate the generator
         # I have to be careful to select the generator (a dispatchable load may reside on the same bus)
-        gen_ind = np.where(octave.isload(self.islands[self.island_map[island]]['gen']) == 0)[0]  # indicies of generators
+        gen_ind = np.where(self.octave.isload(self.islands[self.island_map[island]]['gen']) == 0)[0]  # indicies of generators
         bus_ind = np.where(self.islands[self.island_map[island]]['gen'][gen_ind, 0] == bus_id)  # index to gen_ind
         self.islands[self.island_map[island]]['gen'][gen_ind[bus_ind], 7] = 1
 
@@ -737,28 +741,26 @@ class PowerSystem(object):
         # Feed the objective function state list.
         return state_list, island_list
 
-    @staticmethod
-    def get_losses(case):
+    def get_losses(self, case):
 
         # Evaluate system losses
-        case['losses'] = np.real(np.sum(octave.get_losses(case['baseMVA'], case['bus'], case['branch'])))
+        case['losses'] = np.real(np.sum(self.octave.get_losses(case['baseMVA'], case['bus'], case['branch'])))
 
         return case
 
-    @staticmethod
-    def is_load_is_gen(case_list):
+    def is_load_is_gen(self, case_list):
 
         # Flag if there is gen and or load
         for island in make_iterable(case_list):
 
             # Does the island have loads?
-            if np.all(island['bus'][:, 2:4] == 0) and np.all(octave.isload(island['gen']) == 0):  # True for no loads
+            if np.all(island['bus'][:, 2:4] == 0) and np.all(self.octave.isload(island['gen']) == 0):  # True for no loads
                 island['is_load'] = 0
             else:
                 island['is_load'] = 1
 
             # Are there generators?
-            if np.sum(octave.isload(island['gen']) == 0) > 0:
+            if np.sum(self.octave.isload(island['gen']) == 0) > 0:
                 island['is_gen'] = 1
             else:
                 # If there are no generators, we can stop here

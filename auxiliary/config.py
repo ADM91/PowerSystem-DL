@@ -2,9 +2,12 @@
 import numpy as np
 from oct2py import octave
 
+
 # Add Matpower to octave path
 octave.addpath('/home/alexander/Documents/MATLAB/matpower6.0')
 octave.addpath('/home/alexander/Documents/MATLAB/matpower6.0/@opf_model')
+octave.addpath('/home/alexander/Documents/MATLAB/opf_solvers/minopf5.1_linux')
+octave.addpath('/home/alexander/Documents/MATLAB/opf_solvers/tspopf5.1_linux64')
 
 # Set Matpower options
 mp_opt = octave.mpoption('verbose', 0,

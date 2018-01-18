@@ -193,7 +193,7 @@ all_data, action_map = stochastic_tree_search(ps,
                                               tree,
                                               opt_iteration=30,
                                               res_iteration=50,
-                                              method='inverse cost',
+                                              method='uniform',
                                               verbose=1,
                                               save_data=1,
                                               folder='Tree-search-uniform-d3')
@@ -209,7 +209,7 @@ title = 'Degraded state 1'
 visualize_cost_opt(files, legend_names, title, fig_num=1)
 
 
-with safe_open_w("data/tree-d1.pickle", 'wb') as output_file:
+with safe_open_w("data/tree-d3.pickle", 'wb') as output_file:
     pickle.dump(tree, output_file)
 
 # Perform restoration
