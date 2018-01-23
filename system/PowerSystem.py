@@ -28,9 +28,7 @@ class PowerSystem(object):
         # Instantiate octave instance
         self.octave = Oct2Py()
         self.octave.addpath('/home/alexander/Documents/MATLAB/matpower6.0')
-
         self.pp = PrettyPrinter(indent=4)
-
         self.deactivated = deactivated
         self.verbose = verbose
         self.verbose_state = verbose_state

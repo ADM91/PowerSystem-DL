@@ -1,11 +1,13 @@
-from auxiliary.open_path import safe_open_w
 import pickle
-from optimize.action_map import create_action_map
-from objective.objective_function import objective_function
-import numpy as np
 from copy import deepcopy
+
+import numpy as np
 from anytree import Walker
+
+from auxiliary.action_map import create_action_map
 from auxiliary.integrate_dict import integrate_dict
+from auxiliary.open_path import safe_open_w
+from objective.objective_function import objective_function
 
 # Instantiate tree walker for data collection
 w = Walker()

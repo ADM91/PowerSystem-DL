@@ -147,25 +147,22 @@
 
 # ---------Testing------------
 
-import numpy as np
-from anytree import RenderTree
-from oct2py import octave
-from matplotlib import pyplot as plt
-from auxiliary.config import mp_opt, line_ratings, deconstruct_1, deconstruct_3
-from optimize.RestorationTree import RestorationTree
-from optimize.execute_sequence import execute_sequence
-from optimize.random_search import random_search_opt
-from optimize.sequence_decoder import decode_sequence
-from optimize.stochastic_tree_search import stochastic_tree_search
-from system.PowerSystem import PowerSystem
-from test.test_sequence import test_sequence
-from visualize.visualize_cost_opt import visualize_cost_opt
-from visualize.visualize_state import visualize_state
-from test.test_revert import test_revert
-from optimize.action_map import create_action_map
-from auxiliary.open_path import safe_open_w
 import pickle
 
+import numpy as np
+from matplotlib import pyplot as plt
+from oct2py import octave
+
+from auxiliary.action_map import create_action_map
+from auxiliary.config import mp_opt, line_ratings, deconstruct_3
+from auxiliary.open_path import safe_open_w
+from optimize.random_search import random_search_opt
+from optimize.stochastic.stochastic_tree_search import stochastic_tree_search
+from system.PowerSystem import PowerSystem
+from test.test_sequence import test_sequence
+from tree.RestorationTree import RestorationTree
+from visualize.visualize_cost_opt import visualize_cost_opt
+from visualize.visualize_state import visualize_state
 
 np.set_printoptions(precision=2)
 
