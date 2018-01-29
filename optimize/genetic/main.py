@@ -6,6 +6,8 @@ from tree.RestorationTreeParallel import create_shared_root
 from copy import deepcopy
 from auxiliary.action_map import create_action_map
 from optimize.genetic.init_population import init_population
+from optimize.genetic.evaluate_individual import evaluate_individual
+from optimize.genetic.genetic_alg import genetic_alg
 
 # Instantiate PowerSystem object
 np.set_printoptions(precision=2)
@@ -18,14 +20,8 @@ ps = PowerSystem(base_result,
                  verbose=0,
                  verbose_state=0)
 
-# Load or create tree
-tree = create_shared_root(deepcopy(ps.current_state), deepcopy(ps.islands), deepcopy(ps.action_list))
-
-# Initialize population
-amap = create_action_map(ps.action_list)
-pop = init_population(amap, 10)
-
-# Run genetic alg
+# Run GA
+cost_store, population, fittest_individual = genetic_alg(ps, n=10, iterations=50)
 
 
 

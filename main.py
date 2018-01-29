@@ -152,7 +152,6 @@ import pickle
 import numpy as np
 from matplotlib import pyplot as plt
 from oct2py import octave
-
 from auxiliary.action_map import create_action_map
 from auxiliary.config import mp_opt, line_ratings, deconstruct_3
 from auxiliary.open_path import safe_open_w
@@ -163,6 +162,7 @@ from test.test_sequence import test_sequence
 from tree.RestorationTree import RestorationTree
 from visualize.visualize_cost_opt import visualize_cost_opt
 from visualize.visualize_state import visualize_state
+from optimize.execute_sequence import execute_sequence_2
 
 np.set_printoptions(precision=2)
 
@@ -179,6 +179,7 @@ ps = PowerSystem(base_result,
                  verbose_state=0)
 
 action_map = create_action_map(ps.action_list)
+
 
 
 # Test stochastic tree search
