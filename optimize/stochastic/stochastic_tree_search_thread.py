@@ -205,10 +205,10 @@ def stochastic_tree_search_thread(stuff):
 
         with l_data:
             # Place data in the data dictionary
-            data['opt %s' % i]['run %s' % ii]['cost'] = deepcopy(cost_store)
-            data['opt %s' % i]['run %s' % ii]['energy'] = deepcopy(energy_store)
-            data['opt %s' % i]['run %s' % ii]['time'] = deepcopy(time_store)
-            data['opt %s' % i]['run %s' % ii]['sequence'] = deepcopy(action_seq)
+            data['opt %s' % i]['iter %s' % ii]['cost'] = deepcopy(cost_store)
+            data['opt %s' % i]['iter %s' % ii]['energy'] = deepcopy(energy_store)
+            data['opt %s' % i]['iter %s' % ii]['time'] = deepcopy(time_store)
+            data['opt %s' % i]['iter %s' % ii]['sequence'] = deepcopy(action_seq)
 
             # Append to the optimization data lists (each one is locked while appended)
             with l_total_cost_store:

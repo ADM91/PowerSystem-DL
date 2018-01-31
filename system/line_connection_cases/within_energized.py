@@ -6,19 +6,8 @@ from copy import deepcopy
 
 def within_energized(ps, island_1, bus_ids, spad_lim):
 
-    # print('Before snapshot is taken (outside the class)')
-    # print(ps.current_state['real inj'][17, [2, 4]])
-    # print(ps.islands['0']['branch'][17, 10:13])
-
     # Take preliminary snapshot of the system
     state_list, island_list = take_snapshot(ps, 'Preliminary state', [], [])
-
-    # print('After evaluate state function (outside the class)')
-    # print(ps.current_state['real inj'][17, [2, 4]])
-    # print(state_list[-1]['real inj'][17, [2, 4]])
-    # print(ps.islands['0']['branch'][17, 10:13])
-    # print(island_list[-1]['0']['branch'][17, 10:13])
-    # print('\n')
 
     # Set opf constraint to SPA diff
     # Make sure branch in question is on island branch matrix (isn't if each bus is added via blackout connection)
@@ -37,11 +26,11 @@ def within_energized(ps, island_1, bus_ids, spad_lim):
         ps.islands['blackout']['branch'] = np.delete(ps.islands['blackout']['branch'], np.where(branch_ind), axis=0)
 
     # Set opf constraints
-    ps.islands[ps.island_map[island_1]] = set_opf_constraints(test_case=ps.islands[ps.island_map[island_1]],
-                                                              set_branch=branch_ind,
-                                                              max_SPA=spad_lim,
-                                                              set_gen=False,
-                                                              set_loads=False)
+    ps.islands[ps.island_map[island_1]] = ps.set_opf_constraints(test_case=ps.islands[ps.island_map[island_1]],
+                                                                 set_branch=branch_ind,
+                                                                 max_SPA=spad_lim,
+                                                                 set_gen=False,
+                                                                 set_loads=False)
     # Run opf on the islands
     ps.evaluate_islands()  # Matpower needs to be altered for this to work -- Think I got it
 
@@ -51,11 +40,11 @@ def within_energized(ps, island_1, bus_ids, spad_lim):
 
     # Close the line and restore the SPA diff constraint
     ps.islands[ps.island_map[island_1]]['branch'][branch_ind, 10] = 1
-    ps.islands[ps.island_map[island_1]] = set_opf_constraints(test_case=ps.islands[ps.island_map[island_1]],
-                                                              set_branch=branch_ind,
-                                                              max_SPA=360,
-                                                              set_gen=False,
-                                                              set_loads=False)
+    ps.islands[ps.island_map[island_1]] = ps.set_opf_constraints(test_case=ps.islands[ps.island_map[island_1]],
+                                                                 set_branch=branch_ind,
+                                                                 max_SPA=360,
+                                                                 set_gen=False,
+                                                                 set_loads=False)
 
     # Run opf to get final steady state
     ps.evaluate_islands()

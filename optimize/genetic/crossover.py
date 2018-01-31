@@ -9,7 +9,7 @@ def crossover(pairs, population):
     for i, pair in enumerate(pairs):
         genes = population[pair, :]
         avg_genes = np.mean(genes, axis=0)
-        temp = avg_genes.argsort()
+        temp = avg_genes.argsort(kind='heapsort')
         ranks = np.empty_like(temp)
         ranks[temp] = np.arange(m)
         children[i, :] = ranks

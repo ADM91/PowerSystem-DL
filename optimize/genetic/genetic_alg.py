@@ -6,7 +6,6 @@ from optimize.genetic.selection import selection
 from auxiliary.action_map import create_action_map
 import numpy as np
 from copy import copy
-from multiprocessing import Pool
 
 
 def genetic_alg(ps, n, iterations):
@@ -18,8 +17,6 @@ def genetic_alg(ps, n, iterations):
     fittest_individual = copy(children[0, :])
 
     cost_store = np.empty((iterations, n))
-
-    # pool = Pool(processes=4)
 
     # Run iterations
     for i in range(iterations):
@@ -47,7 +44,7 @@ def genetic_alg(ps, n, iterations):
         children = crossover(pairs, population)
 
         # Mutation
-        children = mutate(children, 1)
+        children = mutate(children, 0.25)
 
         # Elitism
         fittest_individual = copy(population[np.argmin(cost_list), :])
