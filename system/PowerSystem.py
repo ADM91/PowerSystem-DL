@@ -43,7 +43,7 @@ class PowerSystem(object):
                            3: '3'}
 
         # Set the opf constraints on the ideal case, before deconstruction
-        self.ideal_case = set_opf_constraints(ideal_case)
+        self.ideal_case = self.set_opf_constraints(ideal_case)
         self.ideal_case = self.get_losses(self.ideal_case)
         self.ideal_case['id'] = 0
         self.ideal_case = self.is_load_is_gen(self.ideal_case)
@@ -771,7 +771,7 @@ class PowerSystem(object):
         else:
             return case_list
 
-    def set_opt_constraints(self, test_case, set_branch=(), max_spa=365, set_gen=True, set_loads=True):
+    def set_opf_constraints(self, test_case, set_branch=(), max_spa=365, set_gen=True, set_loads=True):
 
         # Work with copy of test case
         test_case_opf = deepcopy(test_case)

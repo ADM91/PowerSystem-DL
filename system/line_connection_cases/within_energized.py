@@ -28,7 +28,7 @@ def within_energized(ps, island_1, bus_ids, spad_lim):
     # Set opf constraints
     ps.islands[ps.island_map[island_1]] = ps.set_opf_constraints(test_case=ps.islands[ps.island_map[island_1]],
                                                                  set_branch=branch_ind,
-                                                                 max_SPA=spad_lim,
+                                                                 max_spa=spad_lim,
                                                                  set_gen=False,
                                                                  set_loads=False)
     # Run opf on the islands
@@ -42,7 +42,7 @@ def within_energized(ps, island_1, bus_ids, spad_lim):
     ps.islands[ps.island_map[island_1]]['branch'][branch_ind, 10] = 1
     ps.islands[ps.island_map[island_1]] = ps.set_opf_constraints(test_case=ps.islands[ps.island_map[island_1]],
                                                                  set_branch=branch_ind,
-                                                                 max_SPA=360,
+                                                                 max_spa=360,
                                                                  set_gen=False,
                                                                  set_loads=False)
 
