@@ -19,15 +19,9 @@ def genetic_alg_parallel(ps_inputs, pop_size, iterations, optimizations, eta, fo
     while len(processes) > 0:
 
         print('active child processes: %s ' % len(active_children()))
-        if len(active_children()) < 7:
+        if len(active_children()) < 6:
             print('kicking off process')
             p = processes.pop()
             p.start()
         else:
             sleep(1)
-
-        for p in processes:
-            p.start()
-            print('active child processes: %s ' % len(active_children()))
-        for p in processes:
-            p.join()
