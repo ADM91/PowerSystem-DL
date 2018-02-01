@@ -1,7 +1,7 @@
 from copy import deepcopy
 import numpy as np
 from oct2py import octave
-from auxiliary.config import dispatchable_loads
+from auxiliary.config_case14 import dispatchable_loads
 
 
 def set_opf_constraints(test_case, set_branch=(), max_SPA=365, set_gen=True, set_loads=True):

@@ -16,7 +16,7 @@ def genetic_alg(ps, n, iterations):
     children = init_population(action_map, n-1)
     fittest_individual = copy(children[0, :])
 
-    cost_store = np.empty((iterations, n))
+    cost_store_array = np.empty((iterations, n))
 
     # Run iterations
     for i in range(iterations):
@@ -28,14 +28,16 @@ def genetic_alg(ps, n, iterations):
         # Evaluate population
         cost_list = []
         for ii, individual in enumerate(population):
-            cost, final_gene = evaluate_individual(ps, individual, action_map)
+            time_store, energy_store, cost_store, final_gene = evaluate_individual(ps, individual, action_map)
 
             # replace gene with final gene
             population[ii] = final_gene
-            cost_list.append(cost)
+            cost_list.append(cost_store['combined total'])
 
         # Store cost data
-        cost_store[i, :] = np.array(cost_list)
+        print('population: \n%s\n' % np.sort(cost_list))
+        cost_store_array[i, :] = np.array(cost_list)
+
 
         # Selection
         pairs = selection(n-1, cost_list)
@@ -44,9 +46,9 @@ def genetic_alg(ps, n, iterations):
         children = crossover(pairs, population)
 
         # Mutation
-        children = mutate(children, 0.25)
+        children = mutate(children, 0.5)
 
         # Elitism
         fittest_individual = copy(population[np.argmin(cost_list), :])
 
-    return cost_store, population, fittest_individual
+    return cost_store_array, population, fittest_individual

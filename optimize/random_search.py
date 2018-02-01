@@ -60,7 +60,7 @@ def random_search_opt(ps, opt_iteration, res_iteration, verbose=1, save_data=0, 
 
             # Sequence evaluation
             if success:
-                [restore_time, energy, cost] = objective_function(states, ps.ideal_state)
+                [restore_time, energy, cost] = objective_function(states, ps.ideal_state, ps.metadata)
 
                 if cost['combined total'] < best_total_cost[-1]:
                     states_store.append(states)

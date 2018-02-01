@@ -1,5 +1,6 @@
 from auxiliary.iterable import iterable
 
+
 def execute_sequence(ps_obj, action_sequence):
 
     # Perform actions according to sequence

@@ -82,7 +82,7 @@ def stochastic_tree_search(ps, tree, opt_iteration, res_iteration, method='cost'
 
                         # Evaluate cost function and update child
                         if len(state_list) > 0:
-                            [restore_time, energy, cost] = objective_function(state_list, ps.ideal_state)
+                            [restore_time, energy, cost] = objective_function(state_list, ps.ideal_state, ps.metadata)
                             child.cost = cost
                             child.time = restore_time
                             child.energy = energy

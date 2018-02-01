@@ -6,7 +6,7 @@ from oct2py import octave
 from optimize.stochastic_tree_search_parallel import stochastic_tree_search_parallel
 
 from auxiliary.action_map import create_action_map
-from auxiliary.config import mp_opt, line_ratings, deconstruct_1, deconstruct_3
+from auxiliary.config_case14 import mp_opt, line_ratings, deconstruct_1, deconstruct_3
 from optimize.stochastic.stochastic_tree_search_thread import stochastic_tree_search_thread
 from system.PowerSystem import PowerSystem
 # from multiprocessing import Pool, Process, Lock, Manager, Value

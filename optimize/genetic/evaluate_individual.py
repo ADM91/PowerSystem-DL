@@ -63,9 +63,9 @@ def evaluate_individual(ps, individual, action_map, verbose=0):
 
     if len(final_gene) == gene_length:
         # Evaluate the objective function
-        time_store, energy_store, cost_store = objective_function(states, ps.ideal_state)
+        time_store, energy_store, cost_store = objective_function(states, ps.ideal_state, ps.metadata)
         return time_store, energy_store, cost_store, final_gene
     else:
-        return [], []
+        return [], [], [], []
 
 

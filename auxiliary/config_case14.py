@@ -20,8 +20,8 @@ mp_opt = octave.mpoption('verbose', 0,
                          'opf.init_from_mpc', 1)
 
 # Constants for the 5 generators in case 14
-case14_droop_constants = np.array([3, 4, 6, 2, 5])  # in percent
-case14_ramp_rates = np.array([25, 15, 15, 20, 30])  # MW/min
+droop_constants = np.array([3, 4, 6, 2, 5])  # in percent
+ramp_rates = np.array([25, 15, 15, 20, 30])  # MW/min
 
 # Convergence constants for slack distribution
 distribute_slack_constants = {'tolerance': 0.01,

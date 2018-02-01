@@ -13,10 +13,10 @@ def selection(n_pairs, cost):
 
             if cost[s1] < cost[s2]:
                 pairs[i, ii] = s1
-                print('selected %s out of %s %s' % (cost[s1], cost[s1], cost[s2]))
+                # print('selected %s out of %s %s' % (cost[s1], cost[s1], cost[s2]))
             else:
                 pairs[i, ii] = s2
-                print('selected %s out of %s %s' % (cost[s2], cost[s1], cost[s2]))
+                # print('selected %s out of %s %s' % (cost[s2], cost[s1], cost[s2]))
 
     return pairs
 

@@ -153,7 +153,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from oct2py import octave
 from auxiliary.action_map import create_action_map
-from auxiliary.config import mp_opt, line_ratings, deconstruct_3
+from auxiliary.config_case14 import mp_opt, line_ratings, deconstruct_3
 from auxiliary.open_path import safe_open_w
 from optimize.random_search import random_search_opt
 from optimize.stochastic.stochastic_tree_search import stochastic_tree_search

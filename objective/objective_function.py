@@ -1,13 +1,16 @@
 import numpy as np
 from copy import deepcopy
-from auxiliary.config import case14_ramp_rates, dispatch_load_cost, fixed_load_cost, loss_cost, disp_dev_cost
 from objective.cumulative_losses import cumulative_losses
 from objective.cumulative_power_deviation import cumulative_power_deviation
 from objective.cumulative_lost_load import cumulative_lost_load
 from objective.ramp_time import ramp_time
 
 
-def objective_function(state_list, ideal_state):
+def objective_function(state_list, ideal_state, metadata):
+
+    # unpack metadata
+    [mp_opt, ramp_rates, dispatch_load_cost, fixed_load_cost,
+     loss_cost, disp_dev_cost, dispatchable_loads] = metadata
 
     time_store = []
     energy_store = {'lost load': [],
@@ -31,7 +34,7 @@ def objective_function(state_list, ideal_state):
         state_2 = state_list[i]
 
         # Evaluate energy lost over time period
-        time = ramp_time(state_1, state_2, case14_ramp_rates)
+        time = ramp_time(state_1, state_2, ramp_rates)
         [lost_d_load, lost_f_load] = cumulative_lost_load(state_1, state_2, ideal_fixed, ideal_dispatched, time)
         losses = cumulative_losses(state_1, state_2, time, ideal_losses)
         dispatch_dev = cumulative_power_deviation(ideal_gen, state_1, state_2, time)

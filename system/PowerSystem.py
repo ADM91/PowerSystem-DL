@@ -4,13 +4,12 @@ import numpy as np
 from copy import copy, deepcopy
 import oct2py
 from oct2py import Oct2Py
-from auxiliary.config import mp_opt
 from system.line_connection_cases.between_blackout_energized import between_blackout_energized
 from system.line_connection_cases.between_islands import between_islands
 from system.line_connection_cases.within_energized import within_energized
 from system.take_snapshot import take_snapshot
 from auxiliary.reshape_gencost import reshape_gencost
-from auxiliary.config import dispatchable_loads
+
 
 def make_iterable(obj):
     if type(obj) == list:
@@ -23,7 +22,7 @@ def make_iterable(obj):
 
 class PowerSystem(object):
 
-    def __init__(self, ideal_case, spad_lim=10, deactivated=1, verbose=1, verbose_state=0, disp_loads=dispatchable_loads):
+    def __init__(self, ideal_case, metadata, spad_lim=10, deactivated=1, verbose=1, verbose_state=0, ):
 
         # Instantiate octave instance
         self.octave = Oct2Py()
@@ -34,7 +33,9 @@ class PowerSystem(object):
         self.verbose_state = verbose_state
         self.spad_lim = spad_lim
         self.current_state = None
-        self.dispatchable_loads = disp_loads
+        self.metadata = metadata
+        self.dispatchable_loads = metadata[-1]
+        self.mp_opt = metadata[0]
 
         self.island_map = {-1: 'blackout',
                            0: '0',
@@ -208,7 +209,7 @@ class PowerSystem(object):
             if island['is_gen'] and island['is_load']:
                 # Evaluate the energized island with opf constraints
                 gencost = deepcopy(island['gencost'])
-                result = self.octave.runopf(island, mp_opt)
+                result = self.octave.runopf(island, self.mp_opt)
                 result = self.get_losses(result)
 
                 # Reset island data to the evaluated result
