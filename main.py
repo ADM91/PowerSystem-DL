@@ -144,6 +144,11 @@
 # I run the island evaluation, it fails.
 # This must be caused by a bookkeeping error.  I need to look diligently through the line connection code. FIXING NOW
 
+# DEBUGGING OPF ERRORS
+# SINGULAR MATRIX - does result indicate unsucessful opf? - Almost certainly yes
+# DISPATCHABLE LOAD POWER FACTOR - does it stem from the output of the previous result? - Almost certainly yes
+# WHAT DO I DO IF I GET SINGULAR MATRIX ERROR? - I can't let the simulation continue
+
 
 # ---------Testing------------
 

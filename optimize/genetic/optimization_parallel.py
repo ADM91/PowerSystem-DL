@@ -19,10 +19,11 @@ def optimization_parallel(ps_inputs, pop_size, iterations, i, eta, folder, save_
     data = generate_dict(iterations, pop_size)
 
     # Unpack PowerSystem inputs
-    [base_result, spad_lim, deactivated, verbose, verbose_state] = ps_inputs
+    [base_result, metadata, spad_lim, deactivated, verbose, verbose_state] = ps_inputs
 
     # Instantiate PowerSystem class
     ps = PowerSystem(base_result,
+                     metadata,
                      spad_lim=spad_lim,
                      deactivated=deactivated,
                      verbose=verbose,
@@ -61,6 +62,9 @@ def optimization_parallel(ps_inputs, pop_size, iterations, i, eta, folder, save_
             data['iter %s' % ii]['indiv %s' % iii]['energy'] = copy(energy_store)
             data['iter %s' % ii]['indiv %s' % iii]['time'] = copy(time_store)
             data['iter %s' % ii]['indiv %s' % iii]['sequence'] = copy(final_gene)
+
+        # Print cost of each individual
+        print('population: \n%s\n' % np.sort(cost_list))
 
         # Selection
         pairs = selection(pop_size-1, cost_list)

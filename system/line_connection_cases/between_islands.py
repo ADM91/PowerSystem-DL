@@ -9,6 +9,9 @@ def between_islands(ps, island_1, island_2):
     ps.evaluate_islands()
     state_list, island_list = take_snapshot(ps, 'Island reconnection preliminary state', [], [])
 
+    # Append connecting line to island 1
+    # ps.islands[ps.island_map[island_1]]['branch'][branch_ind, 10]
+
     # Append all of island 2 to island 1
     island_2_copy = deepcopy(ps.islands[ps.island_map[island_2]])
     ps.islands[ps.island_map[island_1]]['bus'] = np.append(ps.islands[ps.island_map[island_1]]['bus'], island_2_copy['bus'], axis=0)
@@ -32,7 +35,9 @@ def between_islands(ps, island_1, island_2):
     # TODO: remove weaker of two swing buses, there will be at least two buses as is
     
     # Evaluate post connection state
-    ps.evaluate_islands()
+    success = ps.evaluate_islands()
+    if success == 0:
+        return [], []
 
     # Take final snapshot
     title = 'Solving state after island connection'

@@ -30,26 +30,41 @@ distribute_slack_constants = {'tolerance': 0.01,
 # Line ratings for case 30 already exist
 
 # Ones indicate buses w/ dispatchable loads
+# dispatchable_loads = np.array([0, 1, 0, 0, 0,
+#                                0, 0, 1, 0, 0,
+#                                0, 0, 0, 0, 0,
+#                                0, 0, 0, 0, 0,
+#                                1, 0, 0, 0, 0,
+#                                0, 0, 0, 0, 1])
+
 dispatchable_loads = np.array([0, 1, 0, 0, 0,
-                               0, 0, 1, 0, 0,
+                               0, 1, 1, 0, 0,
                                0, 0, 0, 0, 0,
                                0, 0, 0, 0, 0,
-                               1, 0, 0, 0, 0,
-                               0, 0, 0, 0, 1])
+                               0, 0, 0, 0, 0,
+                               0, 0, 0, 0, 0])
+
+
 
 # Load objective ($/MWh)
-dispatch_load_cost = np.array([1, 1, 1, 1]).reshape((-1, 1))
-fixed_load_cost = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]).reshape((-1, 1))
+dispatch_load_cost = np.array([1, 1, 1]).reshape((-1, 1))
+fixed_load_cost = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]).reshape((-1, 1))
 loss_cost = 1
 disp_dev_cost = 0.1
 
 # Deconstructed cases
 # ---------------Deconstruction 1-----------------
-# Only internal reconnection
 deconstruct_1 = np.array([False, False, False, False, False, False, False, False, False, False,
                           False, False, False, False, True, True, True, True, True, True,
                           False, True, False, False, False, False, False, False, False, True,
                           False, False, False, False, False, False, False, False, False, False,
+                          False])
+
+
+deconstruct_2 = np.array([False, False, False, False, False, False, False, False, False, False,
+                          False, False, False, False, True, True, True, True, True, True,
+                          False, True, False, False, False, False, False, False, False, True,
+                          False, True, False, False, False, False, False, False, False, False,
                           False])
 
 # ---------------Deconstruction 2-----------------
@@ -102,23 +117,45 @@ deconstruct_1 = np.array([False, False, False, False, False, False, False, False
 #                           False, True, False, False])
 
 # Lines:
-#       [[  1.,   2.],
-#        [  1.,   5.],
-#        [  2.,   3.],
+# array([[  1.,   2.],
+#        [  1.,   3.],
 #        [  2.,   4.],
-#        [  2.,   5.],
 #        [  3.,   4.],
-#        [  4.,   5.],
-#        [  4.,   7.],
-#        [  4.,   9.],
-#        [  5.,   6.],
-#        [  6.,  11.],
-#        [  6.,  12.],
-#        [  6.,  13.],
-#        [  7.,   8.],
-#        [  7.,   9.],
+#        [  2.,   5.],
+#        [  2.,   6.],
+#        [  4.,   6.],
+#        [  5.,   7.],
+#        [  6.,   7.],
+#        [  6.,   8.],
+#        [  6.,   9.],
+#        [  6.,  10.],
+#        [  9.,  11.],
 #        [  9.,  10.],
-#        [  9.,  14.],
-#        [ 13.,  14.],
-#        [ 10.,  11.],
-#        [ 12.,  13.]])
+#        [  4.,  12.],
+#        [ 12.,  13.],
+#        [ 12.,  14.],
+#        [ 12.,  15.],
+#        [ 12.,  16.],
+#        [ 14.,  15.],
+#        [ 16.,  17.],
+#        [ 15.,  18.],
+#        [ 18.,  19.],
+#        [ 19.,  20.],
+#        [ 10.,  20.],
+#        [ 10.,  17.],
+#        [ 10.,  21.],
+#        [ 10.,  22.],
+#        [ 21.,  22.],
+#        [ 15.,  23.],
+#        [ 22.,  24.],
+#        [ 23.,  24.],
+#        [ 24.,  25.],
+#        [ 25.,  26.],
+#        [ 25.,  27.],
+#        [ 28.,  27.],
+#        [ 27.,  29.],
+#        [ 27.,  30.],
+#        [ 29.,  30.],
+#        [  8.,  28.],
+#        [  6.,  28.]])
+

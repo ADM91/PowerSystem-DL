@@ -8,7 +8,7 @@ import numpy as np
 from copy import copy
 
 
-def genetic_alg(ps, n, iterations):
+def genetic_alg(ps, n, iterations, eta):
 
     action_map = create_action_map(ps.action_list)
 
@@ -38,7 +38,6 @@ def genetic_alg(ps, n, iterations):
         print('population: \n%s\n' % np.sort(cost_list))
         cost_store_array[i, :] = np.array(cost_list)
 
-
         # Selection
         pairs = selection(n-1, cost_list)
 
@@ -46,7 +45,7 @@ def genetic_alg(ps, n, iterations):
         children = crossover(pairs, population)
 
         # Mutation
-        children = mutate(children, 0.5)
+        children = mutate(children, eta)
 
         # Elitism
         fittest_individual = copy(population[np.argmin(cost_list), :])

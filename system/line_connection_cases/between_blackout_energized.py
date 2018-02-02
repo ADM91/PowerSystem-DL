@@ -46,12 +46,15 @@ def between_blackout_energized(ps, island_1, island_2, bus_ids):
     # Add the bus to energized bus matrix if not already there (from ideal case but set load served = 0))
     bus_ind = ps.ideal_case['bus'][:, 0] == black_bus
     if np.any(bus_ind):
-        bus_added = np.append(ps.ideal_case['bus'][bus_ind, :], [0, 0, 0, 0]).reshape((1, -1))
+        bus_added = np.append(ps.ideal_case['bus'][bus_ind, :], [0, 0, 0, 0]).reshape((1, -1))  # candidate bus to be added
         if black_bus in ps.action_list['fixed load']:
             bus_added[:, 2:4] = 0  # Set the load equal to zero
-        ps.islands[ps.island_map[energ_island]]['bus'] = np.append(ps.islands[ps.island_map[energ_island]]['bus'],
-                                                                   bus_added,
-                                                                   axis=0)
+        # Add bus to energized island if its not there
+        if bus_added[0, 0] not in ps.islands[ps.island_map[energ_island]]['bus'][:, 0]:
+            ps.islands[ps.island_map[energ_island]]['bus'] = np.append(ps.islands[ps.island_map[energ_island]]['bus'],
+                                                                       bus_added,
+                                                                       axis=0)
+
         # Move generator and dispatchable loads (if they exist) to the energized island gen and gencost matricies
         # if np.sum(ps.islands[ps.island_map[energ_island]]['gen'][:, 0] == black_bus) == 0:  # perform if generators aren't already there
         gen_ind = ps.islands['blackout']['gen'][:, 0] == black_bus
@@ -87,7 +90,9 @@ def between_blackout_energized(ps, island_1, island_2, bus_ids):
     ps.islands[ps.island_map[energ_island]]['branch'] = ps.islands[ps.island_map[energ_island]]['branch'][line_order, :]
     
     # Run opf to get final steady state
-    ps.evaluate_islands()
+    success = ps.evaluate_islands()
+    if success == 0:
+        return [], []
 
     # Take snapshot
     title = 'Solving state after line connection'

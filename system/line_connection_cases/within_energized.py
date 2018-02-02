@@ -32,7 +32,9 @@ def within_energized(ps, island_1, bus_ids, spad_lim):
                                                                  set_gen=False,
                                                                  set_loads=False)
     # Run opf on the islands
-    ps.evaluate_islands()  # Matpower needs to be altered for this to work -- Think I got it
+    success = ps.evaluate_islands() # Matpower needs to be altered for this to work -- Think I got it
+    if success == 0:
+        return [], []
 
     # Take snapshot
     title = 'Rescheduling for connection of branch %s - %s' % (int(bus_ids[0]), int(bus_ids[1]))
@@ -40,6 +42,10 @@ def within_energized(ps, island_1, bus_ids, spad_lim):
 
     # Close the line and restore the SPA diff constraint
     ps.islands[ps.island_map[island_1]]['branch'][branch_ind, 10] = 1
+    # TODO: fix warning
+    # VisibleDeprecationWarning: boolean index did not match indexed array along dimension 0; dimension is 41 but corresponding boolean dimension is 1
+
+
     ps.islands[ps.island_map[island_1]] = ps.set_opf_constraints(test_case=ps.islands[ps.island_map[island_1]],
                                                                  set_branch=branch_ind,
                                                                  max_spa=360,
@@ -47,7 +53,9 @@ def within_energized(ps, island_1, bus_ids, spad_lim):
                                                                  set_loads=False)
 
     # Run opf to get final steady state
-    ps.evaluate_islands()
+    success = ps.evaluate_islands()
+    if success == 0:
+        return [], []
 
     # Take final snapshot
     title = 'Solving state after line connection'

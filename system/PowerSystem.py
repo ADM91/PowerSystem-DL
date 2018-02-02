@@ -209,8 +209,22 @@ class PowerSystem(object):
             if island['is_gen'] and island['is_load']:
                 # Evaluate the energized island with opf constraints
                 gencost = deepcopy(island['gencost'])
-                result = self.octave.runopf(island, self.mp_opt)
+
+                try:
+                    result = self.octave.runopf(island, self.mp_opt)
+                except Exception as e:
+                    print('Error: %s' % e)
+                    print('\nbus matrix')
+                    print(island['bus'][:, [0,1,3,4]])
+                    print('\nbranch matrix')
+                    print(island['branch'][:, [0,1,10]])
+                    print('\ngen matrix')
+                    print(island['gen'][:, [0,1,2,3,4,8,9]])
+                    print('\ngencost matrix')
+                    print(island['gencost'])
+
                 result = self.get_losses(result)
+                print('opf success: %s' % result['success'])
 
                 # Reset island data to the evaluated result
                 # self.octave object/dynamic does not work, so we have to reconstruct the mpc from scratch (not that hard)
@@ -224,6 +238,8 @@ class PowerSystem(object):
             else:  # Blackout area gets returned as is
                 island['losses'] = 0
                 self.islands[key] = island
+
+        return result['success']
 
     def evaluate_state(self, island_list):
 
@@ -574,9 +590,6 @@ class PowerSystem(object):
             if self.verbose:
                 print('Case: within energized island')
 
-            # print('Before action execution (within the class)')
-            # print(self.current_state['real inj'][17, [2, 4]])
-            # print(self.islands['0']['branch'][17, 10:13])
             state_list, island_list = within_energized(self, island_1, bus_ids, self.spad_lim)
 
         # Deprecating the within_blackout function, its not practical to connect lines within blackout
@@ -590,26 +603,13 @@ class PowerSystem(object):
             if self.verbose:
                 print('Case: Connecting energized islands %s and %s \n' % (island_1, island_2))
 
+            # TODO: don't i have to supply the line linking the islands??
             state_list, island_list = between_islands(self, island_1, island_2)
 
         elif island_1 != island_2 and (island_1 == -1 or island_2 == -1):
             # There should be state collection here
             if self.verbose:
                 print('Case: connecting non-energized bus to energized island')
-
-            # print('Case: connecting non-energized bus to energized island')
-            #
-            # print('Island %s' % self.islands[self.island_map[island_1]]['id'])
-            # print('Island %s' % self.islands[self.island_map[island_2]]['id'])
-            # print(island_1)
-            # print(island_2)
-            # print(bus_ind_1)
-            # print(bus_ind_2)
-            # print(bus_ids)
-            # print(self.islands[self.island_map[island_1]]['bus'][:, [0, 1, 2, 3, 8, 6]])
-            # if self.current_state:
-            #     print(self.current_state['bus voltage angle'])
-                # print(self.current_state['real inj'])
 
             state_list, island_list = between_blackout_energized(self, island_1, island_2, bus_ids)
 
@@ -619,7 +619,10 @@ class PowerSystem(object):
             return [], []
 
         # Ensure that current state variables has the most recent information
-        self.current_state = state_list[-1]
+        if len(state_list) > 0:
+            self.current_state = state_list[-1]
+        else:
+            print('----opf failure----')
 
         # Feed the objective function state list.
         return state_list, island_list
@@ -640,7 +643,7 @@ class PowerSystem(object):
         island = int(self.current_state['bus voltage angle'][bus_ind, 2])
 
         if island == -1:
-            print('Can not activate fixed load within blackout area!')
+            # print('Can not activate fixed load within blackout area!')
             return [], []
 
         # Set the load on the island bus matrix
@@ -649,7 +652,10 @@ class PowerSystem(object):
         self.islands[self.island_map[island]]['bus'][island_bus_ind, 2:4] = self.ideal_case['bus'][ideal_bus_ind, 2:4]
 
         # Evaluate islands with new load
-        self.evaluate_islands()
+        success = self.evaluate_islands()
+        if success == 0:
+            print('----opf failure----')
+            return [], []
 
         # Take snapshot
         title = 'Connecting fixed load on bus %s' % int(bus_id)
@@ -687,7 +693,10 @@ class PowerSystem(object):
         self.islands[self.island_map[island]]['gen'][load_ind[bus_ind], 7] = 1
 
         # Evaluate islands with new load
-        self.evaluate_islands()
+        success = self.evaluate_islands()
+        if success == 0:
+            print('----opf failure----')
+            return [], []
 
         # Take snapshot
         title = 'Connecting dispatchable load on bus %s' % int(bus_id)
@@ -715,7 +724,7 @@ class PowerSystem(object):
         island = int(self.current_state['bus voltage angle'][bus_ind, 2])
 
         if island == -1:
-            print('Can not activate generator within blackout area!')
+            # print('Can not activate generator within blackout area!')
             return [], []
 
         # Activate the generator
@@ -725,15 +734,14 @@ class PowerSystem(object):
         self.islands[self.island_map[island]]['gen'][gen_ind[bus_ind], 7] = 1
 
         # Evaluate islands with new generator connection
-        self.evaluate_islands()
+        success = self.evaluate_islands()
+        if success == 0:
+            print('----opf failure----')
+            return [], []
 
         # Take snapshot
         title = 'Connecting generator on bus %s' % int(bus_id)
         state_list, island_list = take_snapshot(self, title, state_list, island_list)
-
-        connection_state = self.evaluate_state(list(self.islands.values()))
-        connection_state['Title'] = 'Connecting generator on bus %s' % int(bus_id)
-        state_list.append(connection_state)
 
         # Ensure that current state variable has the most recent information
         self.current_state = state_list[-1]
@@ -780,6 +788,9 @@ class PowerSystem(object):
         if len(set_branch) > 0:
             # Constrain deactivated target branch to max SPA
             test_case_opf['branch'][set_branch, 11:13] = [-max_spa, max_spa]
+            # TODO: fix this warning on line 790
+            # VisibleDeprecationWarning: boolean index did not match indexed array along dimension 0; dimension is 41 but corresponding boolean dimension is 1
+
 
         if set_loads:  # Look at load2disp for future implementations(converts fixed loads to dispatchable loads)
 

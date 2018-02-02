@@ -2,6 +2,7 @@ from multiprocessing import Pool, Lock, Manager, Process, active_children
 from optimize.genetic.optimization_parallel import optimization_parallel
 from time import sleep
 
+
 def genetic_alg_parallel(ps_inputs, pop_size, iterations, optimizations, eta, folder='test', save_data=1, n_processes=1):
 
     # Multiprocessing variables
@@ -16,10 +17,11 @@ def genetic_alg_parallel(ps_inputs, pop_size, iterations, optimizations, eta, fo
         # pool.apply_async(optimization_parallel, args=(ps_inputs, pop_size, iterations, i, eta, data, lock))
 
     # Run processes, limit total active processes to 7
+    baseline_p = len(active_children())
     while len(processes) > 0:
 
         print('active child processes: %s ' % len(active_children()))
-        if len(active_children()) < 6:
+        if len(active_children()) < baseline_p+n_processes:
             print('kicking off process')
             p = processes.pop()
             p.start()
