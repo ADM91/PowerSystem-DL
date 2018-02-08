@@ -101,6 +101,11 @@
 # -Fixed- nightmare to find, but found that the islands variable passed to the revert function is mutable, so when
 # action is performed, the islands dictionary kept the change, so action was effectively never undone!  Fixed with copy
 
+# Currently, I have an issue when connecting energized island to blackout bus... a duplicate bus gets generated in the
+# island bus matrix.  The voltage angle and magnitude differ, and one has lagrange multipliers. This means that when
+# I run the island evaluation, it fails.
+# This must be caused by a bookkeeping error.  I need to look diligently through the line connection code. FIXING NOW
+# -Fixed-
 
 # ---------Current Concerns------------
 
@@ -139,16 +144,15 @@
 # - Show that strategies are formed... look at best performing results and try to learn the strategy they use.
 # - In comparing optimizations we care about: time, computing power, all in context of progress of cost minimization.
 
-# Currently, I have an issue when connecting energized island to blackout bus... a duplicate bus gets generated in the
-# island bus matrix.  The voltage angle and magnitude differ, and one has lagrange multipliers. This means that when
-# I run the island evaluation, it fails.
-# This must be caused by a bookkeeping error.  I need to look diligently through the line connection code. FIXING NOW
-
 # DEBUGGING OPF ERRORS
 # SINGULAR MATRIX - does result indicate unsucessful opf? - Almost certainly yes
 # DISPATCHABLE LOAD POWER FACTOR - does it stem from the output of the previous result? - Almost certainly yes
 # WHAT DO I DO IF I GET SINGULAR MATRIX ERROR? - I can't let the simulation continue
 
+# Need to work on before full scale optimization:
+# The get_islands function has some corner case bugs, needs thorough testing
+# Need to write a code that comes up with reasonable degraded states (disconnects adjacent lines)
+# Need to store realized restoration sequences.
 
 # ---------Testing------------
 
