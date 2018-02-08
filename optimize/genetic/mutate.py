@@ -24,10 +24,10 @@ def mutate(children, eta):
             slice_2 = child[s[0]:s[1]]
             slice_3 = child[s[1]:]
 
-            if s1 < s2:
-                children[i, :] = np.hstack((slice_1, slice_2[1:], slice_3[0], slice_2[0], slice_3[1:]))
-            else:
-                children[i, :] = np.hstack((slice_1, slice_3[0], slice_2, slice_3[1:]))
+            # if s1 < s2:
+            #     children[i, :] = np.hstack((slice_1, slice_2[1:], slice_3[0], slice_2[0], slice_3[1:]))
+            # else:
+            children[i, :] = np.hstack((slice_1, slice_3[0], slice_2, slice_3[1:]))
 
             # print('mutated : %s' % child)
             # print('s1: %s\ns2: %s\n' % (s1, s2))

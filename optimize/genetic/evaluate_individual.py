@@ -1,6 +1,7 @@
-from optimize.execute_sequence import execute_sequence_2
-from objective.objective_function import objective_function
 from copy import deepcopy
+import numpy as np
+from objective.objective_function import objective_function
+from system.execute_sequence import execute_sequence_2
 
 
 def evaluate_individual(ps, individual, action_map, verbose=0):
@@ -40,6 +41,21 @@ def evaluate_individual(ps, individual, action_map, verbose=0):
         # If value from store list was executed, continue to next loop iteration
         if flag == 1:
             continue
+
+        # RARE: if there are unexecutable actions in the store array after the inital gene is depleted:
+        if len(init_gene) == 0 and flag == 0:
+            print('\nUnexecutable individual: reshuffling actions and starting over!\n ')
+            # Reshuffle the actions:
+            individual = np.random.permutation(list(action_map.keys()))
+            # Restart the evaluation process
+            store = []
+            final_gene = []
+            init_gene = list(individual)
+            gene_length = len(individual)
+            states = []
+            ps.reset()
+            state = deepcopy(ps.current_state)
+            islands = deepcopy(ps.islands)
 
         # Execute action in initial gene
         val = init_gene[0]

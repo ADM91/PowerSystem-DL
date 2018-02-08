@@ -1,5 +1,5 @@
 from auxiliary.iterable import iterable
-
+from system.verify_state_feasibility import verify_state_feasibility
 
 def execute_sequence(ps_obj, action_sequence):
 
@@ -105,5 +105,6 @@ def execute_sequence_2(ps_obj, sequence, action_map):
         else:
             print('Error: action (%s) does not exist' % action[0])
             return [], []
+
 
     return state_list, island_list

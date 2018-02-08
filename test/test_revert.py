@@ -1,7 +1,8 @@
 from copy import deepcopy
-from optimize.execute_sequence import execute_sequence_2
-from objective.objective_function import objective_function
+
 from auxiliary.integrate_dict import integrate_dict
+from objective.objective_function import objective_function
+from system.execute_sequence import execute_sequence_2
 
 
 def test_revert(ps, actions, action_map):

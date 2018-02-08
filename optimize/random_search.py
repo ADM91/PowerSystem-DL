@@ -1,11 +1,13 @@
 import pickle
-import numpy as np
-from objective.objective_function import objective_function
-from optimize.execute_sequence import execute_sequence
-from optimize.sequence_decoder import decode_sequence
-from optimize.delay_faulty_action import delay_faulty_action
-from auxiliary.open_path import safe_open_w
 import time
+
+import numpy as np
+
+from auxiliary.open_path import safe_open_w
+from objective.objective_function import objective_function
+from optimize.delay_faulty_action import delay_faulty_action
+from optimize.sequence_decoder import decode_sequence
+from system.execute_sequence import execute_sequence
 
 
 def random_search_opt(ps, opt_iteration, res_iteration, verbose=1, save_data=0, folder='test'):

@@ -1,5 +1,5 @@
-from optimize.execute_sequence import execute_sequence_2
 from objective.objective_function import objective_function
+from system.execute_sequence import execute_sequence_2
 
 
 def test_sequence(ps, sequence, action_map):

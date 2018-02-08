@@ -40,10 +40,8 @@ def optimization_parallel(ps_inputs, pop_size, iterations, i, eta, folder, save_
     total_cost_store = []
     best_total_cost_store = []
 
-    # Run iterations
+    # Run generations
     for ii in range(iterations):
-
-        print('\nOpt iter: %s GA iter %s\n' % (i, ii))
 
         population = np.vstack((fittest_individual, children))
 
@@ -64,6 +62,7 @@ def optimization_parallel(ps_inputs, pop_size, iterations, i, eta, folder, save_
             data['iter %s' % ii]['indiv %s' % iii]['sequence'] = copy(final_gene)
 
         # Print cost of each individual
+        print('\nOpt iter: %s GA gen %s' % (i, ii))
         print('population: \n%s\n' % np.sort(cost_list))
 
         # Selection
@@ -92,7 +91,3 @@ def optimization_parallel(ps_inputs, pop_size, iterations, i, eta, folder, save_
     if save_data:
         with safe_open_w("data/%s/optimization_%s.pickle" % (folder, i), 'wb') as output_file:
             pickle.dump(data, output_file)
-
-
-
-

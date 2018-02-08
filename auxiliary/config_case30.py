@@ -41,19 +41,20 @@ dispatchable_loads = np.array([0, 1, 0, 0, 0,
                                0, 1, 1, 0, 0,
                                0, 0, 0, 0, 0,
                                0, 0, 0, 0, 0,
-                               0, 0, 0, 0, 0,
-                               0, 0, 0, 0, 0])
+                               0, 0, 0, 1, 0,
+                               0, 0, 0, 0, 1])
 
 
 
 # Load objective ($/MWh)
-dispatch_load_cost = np.array([1, 1, 1]).reshape((-1, 1))
-fixed_load_cost = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]).reshape((-1, 1))
+dispatch_load_cost = np.array([1, 1, 1, 1, 1]).reshape((-1, 1))
+fixed_load_cost = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]).reshape((-1, 1))
 loss_cost = 1
 disp_dev_cost = 0.1
 
 # Deconstructed cases
 # ---------------Deconstruction 1-----------------
+# Blackout middle, missing buses: 12, 13, 14, 15, 16
 deconstruct_1 = np.array([False, False, False, False, False, False, False, False, False, False,
                           False, False, False, False, True, True, True, True, True, True,
                           False, True, False, False, False, False, False, False, False, True,
@@ -61,11 +62,43 @@ deconstruct_1 = np.array([False, False, False, False, False, False, False, False
                           False])
 
 
+# Blackout middle, missing buses: 12, 13, 14, 15, 16, 18, 23
 deconstruct_2 = np.array([False, False, False, False, False, False, False, False, False, False,
                           False, False, False, False, True, True, True, True, True, True,
                           False, True, False, False, False, False, False, False, False, True,
                           False, True, False, False, False, False, False, False, False, False,
                           False])
+
+# Blackout middle, missing buses: 12, 13, 14, 15, 16, 18
+deconstruct_3 = np.array([False, False, False, False, False, False, False, False, False, False,
+                          False, False, False, False, True, True, True, True, True, True,
+                          False, True, False, False, False, False, False, False, False, True,
+                          False, False, False, False, False, False, False, False, False, False,
+                          False])
+
+# Blackout middle right -- NEED dTO FILL IN GAPS
+deconstruct_4 = np.array([False, False, False, False, False, False, False, False, False, False,
+                          False, True, False, True, True, True, True, True, False, False,
+                          False, False, True, False, False, False, False, True, True, False,
+                          True, False, False, False, False, False, False, False, False, False,
+                          False])
+
+# Cuts down the middle
+deconstruct_5 = np.array([False, False, False, False, True, True, True, False, False, False,
+                          False, False, False, False, False, True, False, False, False, False,
+                          True, False, False, False, True, True, False, False, False, False,
+                          False, False, False, False, False, False, False, False, False, False,
+                          False])
+
+# Cuts down the middle
+deconstruct_6 = np.array([True, True, True, True, True, True, True, False, False, True,
+                          False, False, False, False, True, False, False, False, False, False,
+                          False, False, False, False, False, False, False, False, False, False,
+                          False, False, False, False, False, False, False, False, False, False,
+                          False])
+
+
+
 
 # ---------------Deconstruction 2-----------------
 # # Connects two non-energized buses
@@ -117,45 +150,45 @@ deconstruct_2 = np.array([False, False, False, False, False, False, False, False
 #                           False, True, False, False])
 
 # Lines:
-# array([[  1.,   2.],
-#        [  1.,   3.],
-#        [  2.,   4.],
-#        [  3.,   4.],
-#        [  2.,   5.],
-#        [  2.,   6.],
-#        [  4.,   6.],
-#        [  5.,   7.],
-#        [  6.,   7.],
-#        [  6.,   8.],
-#        [  6.,   9.],
-#        [  6.,  10.],
-#        [  9.,  11.],
-#        [  9.,  10.],
-#        [  4.,  12.],
-#        [ 12.,  13.],
-#        [ 12.,  14.],
-#        [ 12.,  15.],
-#        [ 12.,  16.],
-#        [ 14.,  15.],
-#        [ 16.,  17.],
-#        [ 15.,  18.],
-#        [ 18.,  19.],
-#        [ 19.,  20.],
-#        [ 10.,  20.],
-#        [ 10.,  17.],
-#        [ 10.,  21.],
-#        [ 10.,  22.],
-#        [ 21.,  22.],
-#        [ 15.,  23.],
-#        [ 22.,  24.],
-#        [ 23.,  24.],
-#        [ 24.,  25.],
-#        [ 25.,  26.],
-#        [ 25.,  27.],
-#        [ 28.,  27.],
-#        [ 27.,  29.],
-#        [ 27.,  30.],
-#        [ 29.,  30.],
-#        [  8.,  28.],
-#        [  6.,  28.]])
+# array([[  1.,   2.],1
+#        [  1.,   3.],2
+#        [  2.,   4.],3
+#        [  3.,   4.],4
+#        [  2.,   5.],5
+#        [  2.,   6.],6
+#        [  4.,   6.],7
+#        [  5.,   7.],8
+#        [  6.,   7.],9
+#        [  6.,   8.],10
+#        [  6.,   9.],11
+#        [  6.,  10.],12
+#        [  9.,  11.],13
+#        [  9.,  10.],14
+#        [  4.,  12.],15
+#        [ 12.,  13.],16
+#        [ 12.,  14.],17
+#        [ 12.,  15.],18
+#        [ 12.,  16.],19
+#        [ 14.,  15.],20
+#        [ 16.,  17.],21
+#        [ 15.,  18.],22
+#        [ 18.,  19.],23
+#        [ 19.,  20.],24
+#        [ 10.,  20.],25
+#        [ 10.,  17.],26
+#        [ 10.,  21.],27
+#        [ 10.,  22.],28
+#        [ 21.,  22.],29
+#        [ 15.,  23.],30
+#        [ 22.,  24.],31
+#        [ 23.,  24.],32
+#        [ 24.,  25.],33
+#        [ 25.,  26.],34
+#        [ 25.,  27.],35
+#        [ 28.,  27.],36
+#        [ 27.,  29.],37
+#        [ 27.,  30.],38
+#        [ 29.,  30.],39
+#        [  8.,  28.],40
+#        [  6.,  28.]])41
 

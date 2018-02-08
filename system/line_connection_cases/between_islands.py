@@ -6,7 +6,9 @@ from system.take_snapshot import take_snapshot
 def between_islands(ps, island_1, island_2):
 
     # Get the state prior to connection
-    ps.evaluate_islands()
+    success = ps.evaluate_islands()
+    if success == 0:
+        return [], []
     state_list, island_list = take_snapshot(ps, 'Island reconnection preliminary state', [], [])
 
     # Append connecting line to island 1

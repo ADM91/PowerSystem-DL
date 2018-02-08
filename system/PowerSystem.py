@@ -9,6 +9,8 @@ from system.line_connection_cases.between_islands import between_islands
 from system.line_connection_cases.within_energized import within_energized
 from system.take_snapshot import take_snapshot
 from auxiliary.reshape_gencost import reshape_gencost
+from system.verify_state_feasibility import verify_state_feasibility
+from system.adjust_power_factor import adjust_power_factor
 
 
 def make_iterable(obj):
@@ -203,6 +205,8 @@ class PowerSystem(object):
         # and overwrite the result with this prior gencost matrix
 
         # Loop through the islands
+        opf_success = 1
+        pf_success = 1
         for key, island in list(self.islands.items()):
 
             # Only run for islands with both load and generation
@@ -210,21 +214,35 @@ class PowerSystem(object):
                 # Evaluate the energized island with opf constraints
                 gencost = deepcopy(island['gencost'])
 
+                # Is there power factor discrepancy?
+                success = verify_state_feasibility(self)
+                if success == 0:
+                    print('\npower factor failure prior to runopf!\nAdjusting power factor...\n')
+
+                    # Adjust generator values if discrepancy
+                    island['gen'] = adjust_power_factor(self.octave, island['gen'])
+
                 try:
                     result = self.octave.runopf(island, self.mp_opt)
+                    result = self.get_losses(result)
                 except Exception as e:
-                    print('Error: %s' % e)
-                    print('\nbus matrix')
-                    print(island['bus'][:, [0,1,3,4]])
-                    print('\nbranch matrix')
-                    print(island['branch'][:, [0,1,10]])
-                    print('\ngen matrix')
-                    print(island['gen'][:, [0,1,2,3,4,8,9]])
-                    print('\ngencost matrix')
-                    print(island['gencost'])
+                    print('\nError: %s' % e)
+                    print('Could not prevent the power factor error, trying again:\n ')
+                    # Adjust generator values if discrepancy
+                    island['gen'] = adjust_power_factor(self.octave, island['gen'])
+                    result = self.octave.runopf(island, self.mp_opt)
+                    result = self.get_losses(result)
+                    # print('\nbus matrix')
+                    # print(island['bus'][:, [0,1,3,4]])
+                    # print('\nbranch matrix')
+                    # print(island['branch'][:, [0,1,10]])
+                    # print('\ngen matrix')
+                    # print(island['gen'][:, [0,1,2,3,4,8,9]])
+                    # print('\ngencost matrix')
+                    # print(island['gencost'])
 
-                result = self.get_losses(result)
-                print('opf success: %s' % result['success'])
+                if result['success'] == 0:
+                    opf_success = 0
 
                 # Reset island data to the evaluated result
                 # self.octave object/dynamic does not work, so we have to reconstruct the mpc from scratch (not that hard)
@@ -235,11 +253,20 @@ class PowerSystem(object):
                 island['losses'] = result['losses']
                 self.islands[key] = island
 
+                # Is there power factor discrepancy?
+                success = verify_state_feasibility(self)
+                if success == 0:
+                    pf_success = 0
+
             else:  # Blackout area gets returned as is
                 island['losses'] = 0
                 self.islands[key] = island
 
-        return result['success']
+        print('opf success: %s, power factor success: %s' % (opf_success, pf_success))
+        if opf_success and pf_success:
+            return 1
+        else:
+            return 0
 
     def evaluate_state(self, island_list):
 
@@ -421,7 +448,9 @@ class PowerSystem(object):
 
         if self.verbose:
             for i in islands:
-                print(i['gen'][:, [0,1,2,7]])
+                print(i)
+                # if len(i['gen']) > 0:
+                #     print(i['gen'][:, [0,1,2,7]])
 
         # Detect if there is load and or gen
         islands = self.is_load_is_gen(islands)
@@ -621,8 +650,6 @@ class PowerSystem(object):
         # Ensure that current state variables has the most recent information
         if len(state_list) > 0:
             self.current_state = state_list[-1]
-        else:
-            print('----opf failure----')
 
         # Feed the objective function state list.
         return state_list, island_list
@@ -654,7 +681,6 @@ class PowerSystem(object):
         # Evaluate islands with new load
         success = self.evaluate_islands()
         if success == 0:
-            print('----opf failure----')
             return [], []
 
         # Take snapshot
@@ -689,13 +715,12 @@ class PowerSystem(object):
         # Activate the dispatchable load
         # I have to be careful to select the load not generator (a generator may reside on the same bus)
         load_ind = np.where(self.octave.isload(self.islands[self.island_map[island]]['gen']) == 1)[0]  # indicies of loads
-        bus_ind = np.where(self.islands[self.island_map[island]]['gen'][load_ind, 0] == bus_id)  # index to gen_ind
+        bus_ind = np.where(self.islands[self.island_map[island]]['gen'][load_ind, 0] == bus_id)  # index to load_ind
         self.islands[self.island_map[island]]['gen'][load_ind[bus_ind], 7] = 1
 
         # Evaluate islands with new load
         success = self.evaluate_islands()
         if success == 0:
-            print('----opf failure----')
             return [], []
 
         # Take snapshot
@@ -736,7 +761,6 @@ class PowerSystem(object):
         # Evaluate islands with new generator connection
         success = self.evaluate_islands()
         if success == 0:
-            print('----opf failure----')
             return [], []
 
         # Take snapshot
@@ -768,11 +792,15 @@ class PowerSystem(object):
                 island['is_load'] = 1
 
             # Are there generators?
-            if np.sum(self.octave.isload(island['gen']) == 0) > 0:
-                island['is_gen'] = 1
-            else:
-                # If there are no generators, we can stop here
+            try:
+                if np.sum(self.octave.isload(island['gen']) == 0) > 0:
+                    island['is_gen'] = 1
+                else:
+                    # If there are no generators, we can stop here
+                    island['is_gen'] = 0
+            except:
                 island['is_gen'] = 0
+
 
         # Reshape case list if it is a oct2py cell
         if type(case_list) == oct2py.io.Cell:
@@ -788,9 +816,6 @@ class PowerSystem(object):
         if len(set_branch) > 0:
             # Constrain deactivated target branch to max SPA
             test_case_opf['branch'][set_branch, 11:13] = [-max_spa, max_spa]
-            # TODO: fix this warning on line 790
-            # VisibleDeprecationWarning: boolean index did not match indexed array along dimension 0; dimension is 41 but corresponding boolean dimension is 1
-
 
         if set_loads:  # Look at load2disp for future implementations(converts fixed loads to dispatchable loads)
 
