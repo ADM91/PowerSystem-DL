@@ -4,12 +4,8 @@
 # TODO: Implement more error handling, what if something doesnt converge?
 # TODO: if there is opf convergence failure, set island to blackout... maybe (only at initial degraded state)
 # TODO: study effect of changing load shedding objective use matpower: function modcost
-# TODO: Implement genetic optimization
 # TODO: still have issue with connecting between blackout and energized buses... dammmmn
-# TODO: Create a consistent data format returned by each optimizer - so that I can use a function to compare results
 # TODO: Improve vis function to do comprehensive visualization of optimization results.
-# TODO: Move testing to IEEE 30 bus network, its more realistic but still small enough to not take too much computing
-# TODO: update the random search algorithm to work with the action map dictionary instead of sequence decoder function
 # TODO: Assign ramp rate to each dispatchable load and incorporate in objective function
 
 
@@ -153,6 +149,8 @@
 # The get_islands function has some corner case bugs, needs thorough testing
 # Need to write a code that comes up with reasonable degraded states (disconnects adjacent lines)
 # Need to store realized restoration sequences.
+
+# Timing measurement
 
 # ---------Testing------------
 
