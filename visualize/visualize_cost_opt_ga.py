@@ -18,7 +18,6 @@ def visualize_cost_opt_ga(folder, title):
         # n_opt = len(data.keys())
         # n_iter = len(data.keys()) - 3
 
-
         min_line = np.min(data['total_cost_store'], axis=1)
         max_line = np.max(data['total_cost_store'], axis=1)
         mean_line = np.mean(data['total_cost_store'], axis=1)

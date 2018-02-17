@@ -30,6 +30,7 @@ def optimization_parallel(ps_inputs, pop_size, iterations, i, eta, folder, save_
                      verbose_state=verbose_state)
 
     action_map = create_action_map(ps.action_list)
+    data['action map'] = action_map
 
     # Initialize population
     children = init_population(action_map, pop_size-1)
