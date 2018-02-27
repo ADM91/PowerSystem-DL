@@ -6,8 +6,8 @@ def mutate(children, eta):
 
     n, m = children.shape
 
-    print('prior to mutation')
-    print(children)
+    # print('prior to mutation')
+    # print(children)
 
     for i in range(n):
         r = np.random.rand()
@@ -31,8 +31,8 @@ def mutate(children, eta):
 
             # print('mutated : %s' % child)
             # print('s1: %s\ns2: %s\n' % (s1, s2))
-    print('after mutation')
-    print(children)
+    # print('after mutation')
+    # print(children)
 
     return children
 

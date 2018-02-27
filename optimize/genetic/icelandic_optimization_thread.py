@@ -21,25 +21,31 @@ def icelandic_optimization_thread(ps_inputs, pop_size, iterations, i, eta, folde
 
     data = generate_dict(iterations, pop_size)
 
-    # Instantiate system
+    # Instantiate a randomized system state and degradation
     [metadata, spad_lim, verbose, verbose_state, subset_branches_ind] = ps_inputs
-    deactivated = np.random.choice(subset_branches_ind, 5)  # Randomly choose 5 lines to deactivate
-    ps = PowerSystem(metadata, spad_lim=spad_lim, deactivated=deactivated, verbose=verbose, verbose_state=verbose_state)
-
     while True:
         # Instantiate PowerSystem class
         print('instantiating power system')
+        deactivated = np.random.choice(subset_branches_ind, 4)  # Randomly choose 4 lines to deactivate
+        ps = PowerSystem(metadata, spad_lim=spad_lim, deactivated=deactivated, verbose=verbose,
+                         verbose_state=verbose_state)
         base_case = pick_random_state(ps.octave)
         base_case.gen, base_case.gencost = combine_gen(base_case.gen, base_case.gencost)
         base_result = ps.octave.runpf(base_case, mp_opt)
         success = ps.set_ideal_case(base_result)
+        ps.reset()
 
-        # make sure there arent too many missing elements
-        a = len(ps.action_list['dispatch load']) + len(ps.action_list['fixed load']) + len(ps.action_list['gen']) < 9
-        if a and success:
+        # make sure there aren't too many missing elements
+        n_actions = len(ps.action_list['line']) + len(ps.action_list['dispatch load']) + len(ps.action_list['fixed load']) + len(ps.action_list['gen'])
+        a = n_actions < 10
+        b = len(ps.action_list['line']) >= 4
+        print('number of actions: %s' % n_actions)
+        print('base case success: %s' % success)
+        print('lines deactivated: %s' % len(ps.action_list['line']))
+        if a and b and success:
             break
 
-    print(ps.action_list)
+    # print(ps.action_list)
 
     action_map = create_action_map(ps.action_list)
     data['action map'] = action_map
@@ -64,6 +70,12 @@ def icelandic_optimization_thread(ps_inputs, pop_size, iterations, i, eta, folde
             actions = [action_map[ind] for ind in individual]
             print('evaluating: %s' % actions)
             time_store, energy_store, cost_store, final_gene = evaluate_individual(ps, individual, action_map)
+            if cost_store['combined total'] == np.nan:
+                print('\nGetting nans in output!!!!')
+                print(time_store)
+                print(energy_store)
+                print(cost_store)
+                print('\n')
 
             # replace gene with final gene
             population[iii] = final_gene
@@ -77,8 +89,14 @@ def icelandic_optimization_thread(ps_inputs, pop_size, iterations, i, eta, folde
             data['iter %s' % ii]['indiv %s' % iii]['sequence'] = copy(final_gene)
 
         # Print cost of each individual
+        order = np.argsort(cost_list)
+        cost_list = np.array(cost_list)
+        # print(order)
+        # print(cost_list)
+        # print(population)
         print('\nOpt iter: %s GA gen %s' % (i, ii))
-        print('population: \n%s\n' % np.sort(cost_list))
+        print('population fitness: \n%s\n' % cost_list[order])
+        print('population genes:\n%s\n' % population[order])
 
         # Selection
         pairs = selection(pop_size-1, cost_list)
@@ -101,7 +119,10 @@ def icelandic_optimization_thread(ps_inputs, pop_size, iterations, i, eta, folde
     data['action_sequence_store'] = action_sequence_store
     data['total_cost_store'] = total_cost_store
     data['best_total_cost_store'] = best_total_cost_store
-    data['ps'] = ps
+    data['metadata'] = ps.metadata
+    data['spad_lim'] = ps.spad_lim
+    data['deactivated'] = ps.deactivated
+    data['base_result'] = base_result
 
     # Save data dictionary to file!
     if save_data:

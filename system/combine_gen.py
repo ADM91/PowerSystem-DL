@@ -35,7 +35,7 @@ def combine_gen(gen, gencost):
         sum_gen[7] = 1        # Machine status
 
         # If the generator has no output, remove from the system
-        if sum_gen[1] <= 0:
+        if sum_gen[8] <= 0:
             remove_ind.append(i)
         else:
             new_gen[i, :] = sum_gen

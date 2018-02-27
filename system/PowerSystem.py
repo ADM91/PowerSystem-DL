@@ -91,7 +91,6 @@ class PowerSystem(object):
 
         return success
 
-
     def reset(self):
         """Resets the class to its original degraded state"""
 
@@ -613,7 +612,7 @@ class PowerSystem(object):
         # Verify that action is available!
         ind = np.all(self.action_list['line'] == bus_ids, axis=1)
         if np.sum(ind) != 1:
-            print(self.action_list['line'])
+            # print(self.action_list['line'])
             print('Buses not on action list!: %s' % bus_ids)
             return [], []
 

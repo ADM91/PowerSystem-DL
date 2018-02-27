@@ -53,12 +53,12 @@ for a, b in zip(base_case.bus_name,base_case.bus_nameOLD):
     count += 1
 
 # List the bus names that I have chosen
-buses = [52,51,48,54,49,71,70,72,73,50,55,74,46,44,56]
+buses = [51,48,54,49,71,70,72,73,50,55,74,46,44]
 for b in buses:
     print(base_case.bus_name[b-1])
 
 # List the lines connecting my buses:
-line_map = [line[0] in buses and line[1] in buses for line in base_case.branch]
+line_map = np.where([line[0] in buses and line[1] in buses for line in base_case.branch])
 
 
 
