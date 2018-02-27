@@ -3,14 +3,10 @@ from copy import deepcopy
 from objective.cumulative_losses import cumulative_losses
 from objective.cumulative_power_deviation import cumulative_power_deviation
 from objective.cumulative_lost_load import cumulative_lost_load
-from objective.ramp_time import ramp_time
+from objective.action_time import action_time
 
 
-def objective_function(state_list, ideal_state, metadata):
-
-    # unpack metadata
-    [mp_opt, ramp_rates, dispatch_load_cost, fixed_load_cost,
-     loss_cost, disp_dev_cost, dispatchable_loads] = metadata
+def objective_function(state_list, ideal_state, md):
 
     time_store = []
     energy_store = {'lost load': [],
@@ -33,28 +29,46 @@ def objective_function(state_list, ideal_state, metadata):
         state_1 = state_list[i-1]
         state_2 = state_list[i]
 
-        # Evaluate energy lost over time period
-        time = ramp_time(state_1, state_2, ramp_rates)
-        [lost_d_load, lost_f_load] = cumulative_lost_load(state_1, state_2, ideal_fixed, ideal_dispatched, time)
-        losses = cumulative_losses(state_1, state_2, time, ideal_losses)
-        dispatch_dev = cumulative_power_deviation(ideal_gen, state_1, state_2, time)
+        # States are repeated between actions, leave these out of cost calc
+        if np.any(state_1['real inj'] != state_2['real inj']):
 
-        # Store time of action
-        time_store.append(time)
+            # Evaluate energy lost over time period
+            time = action_time(state_1, state_2, md['ramp_rates'])
+            [lost_d_load, lost_f_load] = cumulative_lost_load(state_1, state_2, ideal_fixed, ideal_dispatched, time)
+            losses = cumulative_losses(state_1, state_2, time, ideal_losses)
+            dispatch_dev = cumulative_power_deviation(ideal_gen, state_1, state_2, time)
 
-        # Store energy values
-        energy_store['lost load'].append([lost_d_load, lost_f_load])
-        energy_store['losses'].append(losses)
-        energy_store['dispatch deviation'].append(dispatch_dev)
+            # Store time of action
+            time_store.append(time)
 
-        # Calculate and store objective of lost energy
-        cost_a = np.sum(lost_d_load*dispatch_load_cost) + np.sum(lost_f_load*fixed_load_cost)
-        cost_b = losses*loss_cost
-        cost_c = dispatch_dev*disp_dev_cost
-        cost_store['lost load'].append(cost_a)
-        cost_store['losses'].append(cost_b)
-        cost_store['dispatch deviation'].append(cost_c)
-        cost_store['total'].append(np.sum([cost_a, cost_b, cost_c]))
+            # Store energy values
+            energy_store['lost load'].append([lost_d_load, lost_f_load])
+            energy_store['losses'].append(losses)
+            energy_store['dispatch deviation'].append(dispatch_dev)
+
+            # Calculate and store objective of lost energy
+            cost_a = np.sum(lost_d_load*md['dispatch_load_cost']) + np.sum(lost_f_load*md['fixed_load_cost'])
+            cost_b = losses*md['loss_cost']
+            cost_c = dispatch_dev*md['disp_dev_cost']
+            cost_store['lost load'].append(cost_a)
+            cost_store['losses'].append(cost_b)
+            cost_store['dispatch deviation'].append(cost_c)
+            cost_store['total'].append(np.sum([cost_a, cost_b, cost_c]))
+        else:
+
+            # Store time of action
+            time_store.append(0)
+
+            # Store energy values
+            energy_store['lost load'].append(0)
+            energy_store['losses'].append(0)
+            energy_store['dispatch deviation'].append(0)
+
+            # Calculate and store objective of lost energy
+            cost_store['lost load'].append(0)
+            cost_store['losses'].append(0)
+            cost_store['dispatch deviation'].append(0)
+            cost_store['total'].append(0)
 
     cost_store['combined total'] = np.sum(cost_store['total'])
 

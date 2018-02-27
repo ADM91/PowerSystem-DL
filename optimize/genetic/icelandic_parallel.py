@@ -1,21 +1,14 @@
 from multiprocessing import Pool, Lock, Manager, Process, active_children
-from optimize.genetic.optimization_thread import optimization_parallel
 from time import sleep
 
 
-def genetic_alg_parallel(ps_inputs, pop_size, iterations, optimizations, eta, folder='test', save_data=1,
-                         n_processes=1, fun=optimization_parallel):
-
-    # Multiprocessing variables
-    # pool = Pool(processes=n_processes)
-    # man = Manager()
-    # lock = Lock()
+def icelandic_parallel(ps_inputs, pop_size, iterations, attempts, eta, fun, folder='test', save_data=1, n_processes=1):
 
     # Create processes containing optimization
     processes = []
-    for i in range(optimizations):
+    for i in range(attempts):
+        # Generate process objects
         processes.append(Process(target=fun, args=(ps_inputs, pop_size, iterations, i, eta, folder, save_data)))
-        # pool.apply_async(optimization_parallel, args=(ps_inputs, pop_size, iterations, i, eta, data, lock))
 
     # Run processes, limit total active processes to 7
     baseline_p = len(active_children())

@@ -2,6 +2,9 @@
 *Animate.*
 *.xml
 .idea/PowerSystem-RL.iml
+auxiliary/config_iceland.py
+visualize/pie_chart.py
+visualize/spad.py
 octave-workspace
 data/
 figures/

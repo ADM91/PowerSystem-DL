@@ -15,13 +15,14 @@ from objective.objective_function import objective_function
 # error: makeAvl: For a dispatchable load, PG and QG must be consistent
 #          with the power factor defined by PMIN and the Q limits.
 
-metadata = [mp_opt,
-            ramp_rates,
-            dispatch_load_cost,
-            fixed_load_cost,
-            loss_cost,
-            disp_dev_cost,
-            dispatchable_loads]
+metadata = {'mp_opt': mp_opt,
+            'ramp_rates': ramp_rates,
+            'dispatch_load_cost': dispatch_load_cost,
+            'fixed_load_cost': fixed_load_cost,
+            'loss_cost': loss_cost,
+            'disp_dev_cost': disp_dev_cost,
+            'gen_load_char': None,
+            'dispatchable_loads': dispatchable_loads}
 
 # Instantiate PowerSystem object
 np.set_printoptions(precision=2)
@@ -62,13 +63,14 @@ spad_lim = 10
 deactivated = deconstruct_6
 verbose = 0
 verbose_state = 0
-metadata = [mp_opt,
-            ramp_rates,
-            dispatch_load_cost,
-            fixed_load_cost,
-            loss_cost,
-            disp_dev_cost,
-            dispatchable_loads]
+metadata = {'mp_opt': mp_opt,
+            'ramp_rates': ramp_rates,
+            'dispatch_load_cost': dispatch_load_cost,
+            'fixed_load_cost': fixed_load_cost,
+            'loss_cost': loss_cost,
+            'disp_dev_cost': disp_dev_cost,
+            'gen_load_char': None,
+            'dispatchable_loads': dispatchable_loads}
 ps_inputs = [base_result, metadata, spad_lim, deactivated, verbose, verbose_state]
 data = genetic_alg_parallel(ps_inputs,
                             pop_size=15,
@@ -79,66 +81,16 @@ data = genetic_alg_parallel(ps_inputs,
                             save_data=1,
                             n_processes=4)
 
-# Run GA parallel
-np.set_printoptions(precision=5)
-base_case = octave.loadcase('case30')
-base_result = octave.runpf(base_case, mp_opt)
-spad_lim = 10
-deactivated = deconstruct_6
-verbose = 0
-verbose_state = 0
-metadata = [mp_opt,
-            ramp_rates,
-            dispatch_load_cost,
-            fixed_load_cost,
-            loss_cost,
-            disp_dev_cost,
-            dispatchable_loads]
-ps_inputs = [base_result, metadata, spad_lim, deactivated, verbose, verbose_state]
-data = genetic_alg_parallel(ps_inputs,
-                            pop_size=10,
-                            iterations=15,
-                            optimizations=20,
-                            eta=0.50,
-                            folder='ga-eta50-d6',
-                            save_data=1,
-                            n_processes=4)
-
-# Run GA parallel
-np.set_printoptions(precision=5)
-base_case = octave.loadcase('case30')
-base_result = octave.runpf(base_case, mp_opt)
-spad_lim = 10
-deactivated = deconstruct_6
-verbose = 0
-verbose_state = 0
-metadata = [mp_opt,
-            ramp_rates,
-            dispatch_load_cost,
-            fixed_load_cost,
-            loss_cost,
-            disp_dev_cost,
-            dispatchable_loads]
-ps_inputs = [base_result, metadata, spad_lim, deactivated, verbose, verbose_state]
-data = genetic_alg_parallel(ps_inputs,
-                            pop_size=10,
-                            iterations=15,
-                            optimizations=20,
-                            eta=0.75,
-                            folder='ga-eta75-d6',
-                            save_data=1,
-                            n_processes=4)
-
 visualize_cost_opt_ga('/home/alexander/Documents/Thesis Work/PowerSystem-RL/data/ga-eta75-d6', 'test-opt')
 
 
 # For printing latex format:
-for i in ps.ideal_case['branch'][:, [0, 1, 2, 3, 4, 5]]:
-    print('%d - %d & %.2f & %.2f & %.2f & %d' % tuple(i))
+for i in ps.ideal_case['branch'][:, [0, 1, 2, 3, 13, 14, 5]]:
+    print('%d - %d & %.2f & %.2f & %.2f & %.2f & %d' % tuple(i))
 
 # Generators
-for i in ps.ideal_case['gen'][:, [0, 8, 9, 3, 4]]:
-    print('%d & %d & %d & %d & %d\\\\' % tuple(i))
+for i in ps.ideal_case['gen'][:, [0, 1, 2, 8, 3, 4]]:
+    print('%d & %.2f & %.2f & %d & %d & %d\\\\' % tuple(i))
 
 # Fixed loads
 for i in ps.ideal_case['bus'][:, [0, 2, 3]]:

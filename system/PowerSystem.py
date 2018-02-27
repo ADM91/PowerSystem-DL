@@ -24,7 +24,7 @@ def make_iterable(obj):
 
 class PowerSystem(object):
 
-    def __init__(self, ideal_case, metadata, spad_lim=10, deactivated=1, verbose=1, verbose_state=0, ):
+    def __init__(self, metadata, spad_lim=10, deactivated=1, verbose=1, verbose_state=0):
 
         # Instantiate octave instance
         self.octave = Oct2Py()
@@ -36,14 +36,20 @@ class PowerSystem(object):
         self.spad_lim = spad_lim
         self.current_state = None
         self.metadata = metadata
-        self.dispatchable_loads = metadata[-1]
-        self.mp_opt = metadata[0]
-
+        self.dispatchable_loads = metadata['dispatchable_loads']
+        self.mp_opt = metadata['mp_opt']
         self.island_map = {-1: 'blackout',
                            0: '0',
                            1: '1',
                            2: '2',
                            3: '3'}
+        self.ideal_case = None
+        self.ideal_state = None
+        self.broken_case = None
+        self.islands = dict()
+        self.action_list = dict()
+
+    def set_ideal_case(self, ideal_case):
 
         # Set the opf constraints on the ideal case, before deconstruction
         self.ideal_case = self.set_opf_constraints(ideal_case)
@@ -74,20 +80,17 @@ class PowerSystem(object):
             self.broken_case = self.indexed_deactivate()
 
         # Detect and isolate islands, identify blackout zone
-        self.islands = dict()
         self.get_islands(self.broken_case)
-        self.evaluate_islands()
+        success = self.evaluate_islands()
 
         # Get current state
         self.current_state = self.evaluate_state(list(self.islands.values()))
 
         # Identify the disconnected system elements - uses the current state variable and islands
-        self.action_list = dict()
         self.generate_action_list()
 
-        # Initialize blackout connection list (list within a list)
-        self.blackout_connections = {'buses': [],
-                                     'lines': []}
+        return success
+
 
     def reset(self):
         """Resets the class to its original degraded state"""
@@ -144,16 +147,16 @@ class PowerSystem(object):
         # We have defined all disabled elements in the state as zeros, so we index
 
         line_ind = (self.current_state['real inj'][:, -1] == 0).reshape(-1)
-        self.action_list['line'] = self.current_state['real inj'][line_ind, 0:2]
+        self.action_list['line'] = deepcopy(self.current_state['real inj'][line_ind, 0:2])
 
         fixed_load_ind = (self.current_state['fixed load'][:, -1] == 0).reshape(-1)
-        self.action_list['fixed load'] = self.current_state['fixed load'][fixed_load_ind, 0]
+        self.action_list['fixed load'] = deepcopy(self.current_state['fixed load'][fixed_load_ind, 0])
 
         dispatch_load_ind = (self.current_state['dispatch load'][:, -1] == 0).reshape(-1)
-        self.action_list['dispatch load'] = self.current_state['dispatch load'][dispatch_load_ind, 0]
+        self.action_list['dispatch load'] = deepcopy(self.current_state['dispatch load'][dispatch_load_ind, 0])
 
         gen_ind = (self.current_state['real gen'][:, -1] == 0).reshape(-1)
-        self.action_list['gen'] = self.current_state['real gen'][gen_ind, 0]
+        self.action_list['gen'] = deepcopy(self.current_state['real gen'][gen_ind, 0])
 
     def initialize_state(self):
 
@@ -223,6 +226,7 @@ class PowerSystem(object):
                     island['gen'] = adjust_power_factor(self.octave, island['gen'])
 
                 try:
+
                     result = self.octave.runopf(island, self.mp_opt)
                     result = self.get_losses(result)
                 except Exception as e:
@@ -455,6 +459,17 @@ class PowerSystem(object):
         # Detect if there is load and or gen
         islands = self.is_load_is_gen(islands)
 
+        # Initialize blackout dictionary to empty arrays
+        self.islands['blackout'] = {'bus': np.empty((0, self.ideal_case['bus'].shape[1])),
+                                    'branch': np.empty((0, self.ideal_case['branch'].shape[1])),
+                                    'gen': np.empty((0, self.ideal_case['gen'].shape[1])),
+                                    'gencost': np.empty((0, self.ideal_case['gencost'].shape[1])),
+                                    'connections': list(),
+                                    'is_load': 0,
+                                    'is_gen': 0,
+                                    'losses': 0,
+                                    'id': -1}
+
         count = 0
         for island in make_iterable(islands):
             if self.verbose:
@@ -491,29 +506,26 @@ class PowerSystem(object):
                     print('Island is in blackout')
 
                 # Deconstruct island and place its elements in blackout zone
-                self.islands['blackout']['bus'] = np.append(self.islands['blackout']['bus'],
-                                                            island['bus'], axis=0)
-                self.islands['blackout']['branch'] = np.append(self.islands['blackout']['branch'],
-                                                               island['branch'], axis=0)
-                self.islands['blackout']['gen'] = np.append(self.islands['blackout']['gen'],
-                                                            island['gen'], axis=0)
-                self.islands['blackout']['gencost'] = np.append(self.islands['blackout']['gencost'],
-                                                                island['gencost'], axis=0)
+                if len(island['bus']) < 0:
+                    self.islands['blackout']['bus'] = np.append(self.islands['blackout']['bus'],
+                                                                island['bus'], axis=0)
+                if len(island['branch']) < 0:
+                    self.islands['blackout']['branch'] = np.append(self.islands['blackout']['branch'],
+                                                                   island['branch'], axis=0)
+                # print(self.islands['blackout']['gen'])
+                # print(island['gen'])
+                if len(island['gen']) < 0:
+                    self.islands['blackout']['gen'] = np.append(self.islands['blackout']['gen'],
+                                                                island['gen'], axis=0)
+                if len(island['gencost']) < 0:
+                    self.islands['blackout']['gencost'] = np.append(self.islands['blackout']['gencost'],
+                                                                    island['gencost'], axis=0)
 
         if self.verbose:
             print('\nExtracting blackout area')
             print('Using evaluate_state to uncover what is under blackout')
 
-        # Initialize blackout dictionary to empty arrays
-        self.islands['blackout'] = {'bus': np.empty((0, self.ideal_case['bus'].shape[1])),
-                                    'branch': np.empty((0, self.ideal_case['branch'].shape[1])),
-                                    'gen': np.empty((0, self.ideal_case['gen'].shape[1])),
-                                    'gencost': np.empty((0, self.ideal_case['gencost'].shape[1])),
-                                    'connections': list(),
-                                    'is_load': 0,
-                                    'is_gen': 0,
-                                    'losses': 0,
-                                    'id': -1}
+
 
         # Add left over blackout elements! We need to evaluate the state and check for nans
         state = self.evaluate_state(list(self.islands.values()))
@@ -601,7 +613,8 @@ class PowerSystem(object):
         # Verify that action is available!
         ind = np.all(self.action_list['line'] == bus_ids, axis=1)
         if np.sum(ind) != 1:
-            print('Buses not on action list!')
+            print(self.action_list['line'])
+            print('Buses not on action list!: %s' % bus_ids)
             return [], []
 
         # What islands do the buses reside on? First evaluate current state
@@ -845,7 +858,8 @@ class PowerSystem(object):
                                1,
                                0,
                                -real_loads[i]]
-                    new_gen = np.append(new_gen, 11 * [0]).reshape((1, -1))
+                    filler = len(test_case_opf['gen'][0]) - len(new_gen)
+                    new_gen = np.append(new_gen, filler * [0]).reshape((1, -1))
 
                     # Append dispatchable load to gen matrix
                     if type(test_case_opf['gen']) == list:

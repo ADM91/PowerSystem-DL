@@ -7,13 +7,14 @@ from auxiliary.config_case30 import mp_opt, deconstruct_6,\
 from system.PowerSystem import PowerSystem
 
 
-metadata = [mp_opt,
-            ramp_rates,
-            dispatch_load_cost,
-            fixed_load_cost,
-            loss_cost,
-            disp_dev_cost,
-            dispatchable_loads]
+metadata = {'mp_opt': mp_opt,
+            'ramp_rates': ramp_rates,
+            'dispatch_load_cost': dispatch_load_cost,
+            'fixed_load_cost': fixed_load_cost,
+            'loss_cost': loss_cost,
+            'disp_dev_cost': disp_dev_cost,
+            'gen_load_char': None,
+            'dispatchable_loads': dispatchable_loads}
 
 # Instantiate PowerSystem object
 np.set_printoptions(precision=2)

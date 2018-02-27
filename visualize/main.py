@@ -86,3 +86,68 @@ plt.xlabel('Actions executed')
 plt.ylabel('Restoration cost')
 plt.xlim([0, 2100])
 
+
+
+# ----- testing --------
+
+with open('/home/alexander/Documents/Thesis Work/PowerSystem-RL/data/ga-eta65-d6-test/optimization_11.pickle', 'rb') as f:
+    data = pickle.load(f)
+
+data['best_total_cost_store']
+
+for i in data['action_sequence_store'][-1]:
+
+    print('%s & %s \\\\' % (data['action map'][i][0], data['action map'][i][1]))
+
+# --------------- Visualize state ---------------
+
+from oct2py import octave
+from auxiliary.config_case30 import mp_opt, deconstruct_6,\
+    dispatchable_loads, ramp_rates, dispatch_load_cost, fixed_load_cost, loss_cost, disp_dev_cost
+from system.PowerSystem import PowerSystem
+from system.execute_sequence import execute_sequence_2
+from objective.objective_function import objective_function
+from visualize.visualize_state import visualize_state
+from visualize.visualize_cost import visualize_cost
+import pickle
+import numpy as np
+from objective.power_deviation import power_deviation
+
+
+metadata = {'mp_opt': mp_opt,
+            'ramp_rates': ramp_rates,
+            'dispatch_load_cost': dispatch_load_cost,
+            'fixed_load_cost': fixed_load_cost,
+            'loss_cost': loss_cost,
+            'disp_dev_cost': disp_dev_cost,
+            'gen_load_char': None,
+            'dispatchable_loads': dispatchable_loads}
+
+# Instantiate PowerSystem object
+np.set_printoptions(precision=2)
+base_case = octave.loadcase('case30')
+# base_case['branch'][:, 5] = line_ratings  # Only necessary for case 14
+base_result = octave.runpf(base_case, mp_opt)
+ps = PowerSystem(base_result,
+                 metadata,
+                 spad_lim=10,
+                 deactivated=deconstruct_6,
+                 verbose=1,
+                 verbose_state=0)
+
+with open('/home/alexander/Documents/Thesis Work/PowerSystem-RL/data/iceland_test/optimization_10.pickle', 'rb') as f:
+    data = pickle.load(f)
+sequence = data['action_sequence_store'][-1]
+action_map = data['action map']
+
+state_list, island_list = execute_sequence_2(ps, sequence, action_map)
+time_store, energy_store, cost_store = objective_function(state_list, ps.ideal_state, metadata)
+[gen_dev, load_dev, loss_dev] = power_deviation(state_list, ps.ideal_state)
+
+# visualize_state(ps.ideal_case, ps.ideal_state, state_list, fig_num=1, frames=10, save=False)
+visualize_cost(time_store, cost_store, energy_store, gen_dev, load_dev, loss_dev)
+
+
+
+
+
