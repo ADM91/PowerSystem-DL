@@ -47,8 +47,9 @@ dispatchable_loads = np.array([0, 1, 0, 0, 0,
 
 
 # Load objective ($/MWh)
-dispatch_load_cost = np.array([1, 1, 1, 1, 1]).reshape((-1, 1))
-fixed_load_cost = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]).reshape((-1, 1))
+load_cost = 100
+dispatch_load_cost = np.array([load_cost]*5).reshape((-1, 1))
+fixed_load_cost = np.array([load_cost]*15).reshape((-1, 1))
 loss_cost = 1
 disp_dev_cost = 0.1
 

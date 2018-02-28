@@ -8,7 +8,7 @@ from auxiliary.config_iceland import mp_opt,\
     loss_cost,\
     disp_dev_cost, \
     gen_load_char,\
-    line_map,\
+    load_cost,\
     subset_branches_ind
 from system.PowerSystem import PowerSystem
 from system.pick_random_state import pick_random_state
@@ -32,7 +32,8 @@ metadata = {'mp_opt': mp_opt,
             'loss_cost': loss_cost,
             'disp_dev_cost': disp_dev_cost,
             'gen_load_char': gen_load_char,
-            'dispatchable_loads': dispatchable_loads}
+            'dispatchable_loads': dispatchable_loads,
+            'load_cost': load_cost}
 ps_inputs = [metadata, spad_lim, verbose, verbose_state, subset_branches_ind]
 
 # for i in range(5):

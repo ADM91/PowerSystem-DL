@@ -36,9 +36,11 @@ def icelandic_optimization_thread(ps_inputs, pop_size, iterations, i, eta, folde
         ps.reset()
 
         # make sure there aren't too many missing elements
+        list_islands = ps.islands.keys()
         n_actions = len(ps.action_list['line']) + len(ps.action_list['dispatch load']) + len(ps.action_list['fixed load']) + len(ps.action_list['gen'])
-        a = n_actions < 10
+        a = n_actions < 9
         b = len(ps.action_list['line']) >= 4
+        print('number of islands: %s' % list_islands)
         print('number of actions: %s' % n_actions)
         print('base case success: %s' % success)
         print('lines deactivated: %s' % len(ps.action_list['line']))

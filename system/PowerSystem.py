@@ -867,7 +867,8 @@ class PowerSystem(object):
                         test_case_opf['gen'] = np.append(test_case_opf['gen'], new_gen, axis=0)
 
                     # Append dispatchable load to gencost matrix
-                    new_gencost = np.array([1, 0, 0, 2, -real_loads[i], -real_loads[i], 0, 0, 0, 0]).reshape((1, -1))
+                    # [model, startup cost, shutdown cost, data points, parameters (p(MW), f($/hr))]
+                    new_gencost = np.array([1, 0, 0, 2, -real_loads[i], -real_loads[i]*self.metadata['dispatch_load_cost'][0], 0, 0, 0, 0]).reshape((1, -1))
                     if test_case_opf['gencost'].size == 0:
                         test_case_opf['gencost'] = deepcopy(new_gencost)
                     else:

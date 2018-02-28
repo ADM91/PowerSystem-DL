@@ -64,11 +64,12 @@ def between_blackout_energized(ps, island_1, island_2, bus_ids):
             gen[:, 7] = 0  # Leave out of service, activating the generator/load is a separate action
 
             # Match the size of gen vectors:
-            diff = len(gen[0]) - len(ps.islands[ps.island_map[energ_island]]['gen'][0])
+            diff = len(ps.islands[ps.island_map[energ_island]]['gen'][0]) - len(gen[0])
             if diff > 0:
                 gen = np.append(gen, np.zeros((np.sum(gen_ind), diff)), axis=1)
                 # gen = np.hstack((gen, np.zeros(diff)))
 
+            # print(diff)
             # print(ps.islands[ps.island_map[energ_island]]['gen'][0])
             # print(gen)
             ps.islands[ps.island_map[energ_island]]['gen'] = np.append(ps.islands[ps.island_map[energ_island]]['gen'],

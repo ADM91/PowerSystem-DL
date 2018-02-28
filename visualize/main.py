@@ -103,7 +103,7 @@ for i in data['action_sequence_store'][-1]:
 
 from oct2py import octave
 from auxiliary.config_case30 import mp_opt, deconstruct_6,\
-    dispatchable_loads, ramp_rates, dispatch_load_cost, fixed_load_cost, loss_cost, disp_dev_cost
+    dispatchable_loads, ramp_rates, dispatch_load_cost, fixed_load_cost, loss_cost, disp_dev_cost, load_cost
 from system.PowerSystem import PowerSystem
 from system.execute_sequence import execute_sequence_2
 from objective.objective_function import objective_function
@@ -121,22 +121,26 @@ metadata = {'mp_opt': mp_opt,
             'loss_cost': loss_cost,
             'disp_dev_cost': disp_dev_cost,
             'gen_load_char': None,
-            'dispatchable_loads': dispatchable_loads}
+            'dispatchable_loads': dispatchable_loads,
+            'load_cost': load_cost}
 
 # Instantiate PowerSystem object
 np.set_printoptions(precision=2)
 base_case = octave.loadcase('case30')
-# base_case['branch'][:, 5] = line_ratings  # Only necessary for case 14
-base_result = octave.runpf(base_case, mp_opt)
-ps = PowerSystem(base_result,
-                 metadata,
-                 spad_lim=10,
-                 deactivated=deconstruct_6,
-                 verbose=1,
+ps = PowerSystem(metadata, spad_lim=10, deactivated=deconstruct_6, verbose=1,
                  verbose_state=0)
+base_result = ps.octave.runpf(base_case, mp_opt)
+success = ps.set_ideal_case(base_result)
 
-with open('/home/alexander/Documents/Thesis Work/PowerSystem-RL/data/iceland_test/optimization_10.pickle', 'rb') as f:
+# for i in range(1,20):
+#     with open('/home/alexander/Documents/Thesis Work/PowerSystem-RL/data/ga-eta65-d6-test/optimization_%s.pickle' %i , 'rb') as f:
+#         data = pickle.load(f)
+#     print(data['best_total_cost_store'][-1])
+
+with open('/home/alexander/Documents/Thesis Work/PowerSystem-RL/data/ga-eta65-d6-test/optimization_11.pickle', 'rb') as f:
     data = pickle.load(f)
+
+
 sequence = data['action_sequence_store'][-1]
 action_map = data['action map']
 
