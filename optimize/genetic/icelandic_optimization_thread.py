@@ -39,7 +39,7 @@ def icelandic_optimization_thread(ps_inputs, pop_size, iterations, i, eta, folde
         list_islands = ps.islands.keys()
         n_actions = len(ps.action_list['line']) + len(ps.action_list['dispatch load']) + len(ps.action_list['fixed load']) + len(ps.action_list['gen'])
         a = n_actions < 9
-        b = len(ps.action_list['line']) >= 4
+        b = len(ps.action_list['line']) >= 3
         print('number of islands: %s' % list_islands)
         print('number of actions: %s' % n_actions)
         print('base case success: %s' % success)
@@ -72,12 +72,16 @@ def icelandic_optimization_thread(ps_inputs, pop_size, iterations, i, eta, folde
             actions = [action_map[ind] for ind in individual]
             print('evaluating: %s' % actions)
             time_store, energy_store, cost_store, final_gene = evaluate_individual(ps, individual, action_map)
-            if cost_store['combined total'] == np.nan:
-                print('\nGetting nans in output!!!!')
-                print(time_store)
-                print(energy_store)
-                print(cost_store)
-                print('\n')
+            if len(final_gene) == 0:
+                print('\nFailed to find a feasible sequence, trying existing individual\n')
+                if iii > 3:
+                    # Mutate an already existing successful gene
+                    r = np.random.randint(1, iii)
+                    individual = mutate(population[r, :].reshape(1, -1), 1)
+                    time_store, energy_store, cost_store, final_gene = evaluate_individual(ps, individual, action_map)
+                else:
+                    print('\nFailed to find a feasible sequence, aborting!\n')
+                    return
 
             # replace gene with final gene
             population[iii] = final_gene

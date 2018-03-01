@@ -20,6 +20,7 @@ def action_time(state_1, state_2, ramp_rates):
     gen_time = np.abs(gen_diff/ramp_rates)   # Ramp rate 10 MW/min
     f_load_time = np.abs(f_load_diff*0.02)  # 0.02 min/MW (1.2 sec/MW)
     d_load_time = np.abs(d_load_diff*0.02)  # 0.02 min/MW (1.2 sec/MW)
+    d_load_time = np.nan_to_num(d_load_time)
 
     # Add 15 sec of mechanical/operator delay time per action
     total = 0.25 + np.max([np.max(gen_time), np.max(f_load_time), np.max(d_load_time)])

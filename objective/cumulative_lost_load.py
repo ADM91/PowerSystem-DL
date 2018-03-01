@@ -19,17 +19,5 @@ def cumulative_lost_load(state_1, state_2, ideal_fixed, ideal_dispatched, time):
     # Lost fixed loads
     lost_f_load = time*(ideal_fixed - fixed_2)
 
-    # Lost dispatchalbe power
-
-
-    # Lost fixed power
-
-
-    # print(ideal_dispatched)
-    # print(dispatched_1)
-    # print(dispatched_2)
-    # print(mean_d_load)
-    # print(lost_d_load)
-    # print('\n')
-
     return [lost_d_load, lost_f_load]
+

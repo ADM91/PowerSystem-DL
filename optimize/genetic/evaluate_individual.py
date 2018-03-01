@@ -16,6 +16,7 @@ def evaluate_individual(ps, individual, action_map, verbose=0):
     ps.reset()
 
     # Execute until finial gene is complete
+    fail_count = 0
     while len(final_gene) < gene_length:
 
         # Save PowerSystem state in case reversion is necessary
@@ -56,6 +57,9 @@ def evaluate_individual(ps, individual, action_map, verbose=0):
             ps.reset()
             state = deepcopy(ps.current_state)
             islands = deepcopy(ps.islands)
+            fail_count += 1
+            if fail_count >= 5:
+                return [], [], [], []
 
         # Execute action in initial gene
         val = init_gene[0]

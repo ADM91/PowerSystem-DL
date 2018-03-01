@@ -235,14 +235,6 @@ class PowerSystem(object):
                     island['gen'] = adjust_power_factor(self.octave, island['gen'])
                     result = self.octave.runopf(island, self.mp_opt)
                     result = self.get_losses(result)
-                    # print('\nbus matrix')
-                    # print(island['bus'][:, [0,1,3,4]])
-                    # print('\nbranch matrix')
-                    # print(island['branch'][:, [0,1,10]])
-                    # print('\ngen matrix')
-                    # print(island['gen'][:, [0,1,2,3,4,8,9]])
-                    # print('\ngencost matrix')
-                    # print(island['gencost'])
 
                 if result['success'] == 0:
                     opf_success = 0
@@ -524,8 +516,6 @@ class PowerSystem(object):
             print('\nExtracting blackout area')
             print('Using evaluate_state to uncover what is under blackout')
 
-
-
         # Add left over blackout elements! We need to evaluate the state and check for nans
         state = self.evaluate_state(list(self.islands.values()))
 
@@ -561,11 +551,11 @@ class PowerSystem(object):
         # Populate blackout dispatchable loads
         load_ind = np.isnan(state['dispatch load'][:, 1]).reshape((-1,))
         load_id = state['dispatch load'][load_ind, 0]
-        for g_id in gen_id:
+        for l_id in load_id:
             gen_ind = (self.octave.isload(self.ideal_case['gen']) == 1).reshape(-1)  # index of dispatchable loads
             gen = self.ideal_case['gen'][gen_ind, :]
             gencost = self.ideal_case['gencost'][gen_ind, :]
-            ind1 = (gen[:, 0] == g_id).reshape(-1,)
+            ind1 = (gen[:, 0] == l_id).reshape(-1,)
             self.islands['blackout']['gen'] = np.append(self.islands['blackout']['gen'],
                                                         gen[ind1, :], axis=0)
             self.islands['blackout']['gencost'] = np.append(self.islands['blackout']['gencost'],
@@ -644,8 +634,7 @@ class PowerSystem(object):
             if self.verbose:
                 print('Case: Connecting energized islands %s and %s \n' % (island_1, island_2))
 
-            # TODO: don't i have to supply the line linking the islands??
-            state_list, island_list = between_islands(self, island_1, island_2)
+            state_list, island_list = between_islands(self, island_1, island_2, bus_ids)
 
         elif island_1 != island_2 and (island_1 == -1 or island_2 == -1):
             # There should be state collection here

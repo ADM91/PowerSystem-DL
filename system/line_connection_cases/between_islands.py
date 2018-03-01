@@ -3,16 +3,33 @@ import numpy as np
 from system.take_snapshot import take_snapshot
 
 
-def between_islands(ps, island_1, island_2):
+def between_islands(ps, island_1, island_2, bus_ids):
 
     # Get the state prior to connection
     success = ps.evaluate_islands()
     if success == 0:
         return [], []
+
     state_list, island_list = take_snapshot(ps, 'Island reconnection preliminary state', [], [])
 
-    # Append connecting line to island 1
-    # ps.islands[ps.island_map[island_1]]['branch'][branch_ind, 10]
+    # Find and move line to island_1:
+    island_1_ind = np.all(ps.islands[ps.island_map[island_1]]['branch'][:, 0:2] == bus_ids, axis=1)
+    island_2_ind = np.all(ps.islands[ps.island_map[island_2]]['branch'][:, 0:2] == bus_ids, axis=1)
+    blackout_ind = np.all(ps.islands['blackout']['branch'][:, 0:2] == bus_ids, axis=1)
+
+    if np.sum(island_1_ind) == 1:
+        ps.islands[ps.island_map[island_1]]['branch'][island_1_ind, 10] = 1
+    elif np.sum(island_2_ind) == 1:
+        # Island 2 gets appended to island 1 later
+        ps.islands[ps.island_map[island_2]]['branch'][island_2_ind, 10] = 1
+    elif np.sum(blackout_ind) == 1:
+        # Give line to island 1 if its in blackout
+        ps.islands[ps.island_map[island_1]]['branch'] = np.vstack((ps.islands[ps.island_map[island_1]]['branch'],
+                                                                  np.hstack((ps.islands['blackout']['branch'][blackout_ind, :][0], np.zeros(4)))))
+        ps.islands['blackout']['branch'] = np.delete(ps.islands['blackout']['branch'], blackout_ind, axis=0)
+    else:
+        print('Couldnt find the tie line, aborting')
+        return [], []
 
     # Append all of island 2 to island 1
     island_2_copy = deepcopy(ps.islands[ps.island_map[island_2]])

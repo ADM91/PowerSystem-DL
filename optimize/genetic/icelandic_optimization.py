@@ -15,12 +15,13 @@ from system.pick_random_state import pick_random_state
 from system.combine_gen import combine_gen
 from optimize.genetic.genetic_alg_parallel import genetic_alg_parallel
 from optimize.genetic.icelandic_optimization_thread import icelandic_optimization_thread
-
+from system.combine_lines import combine_lines
 
 # Run GA parallel
-np.set_printoptions(precision=5)
+np.set_printoptions(precision=2)
 base_case = pick_random_state(octave)
 base_case.gen, base_case.gencost = combine_gen(base_case.gen, base_case.gencost)
+base_case.branch = combine_lines(base_case.branch)
 base_result = octave.runpf(base_case, mp_opt)
 spad_lim = 20
 verbose = 0
@@ -38,14 +39,18 @@ ps_inputs = [metadata, spad_lim, verbose, verbose_state, subset_branches_ind]
 
 # for i in range(5):
 data = genetic_alg_parallel(ps_inputs,
-                            pop_size=10,
-                            iterations=10,
+                            pop_size=4,
+                            iterations=2,
                             optimizations=3,
                             eta=0.9,
                             folder='iceland_test_2',
                             save_data=1,
                             n_processes=3,
                             fun=icelandic_optimization_thread)
+
+# Bugs discovered:
+
+# Gen nans out of fitness scores... I believe this is because run actually fails. but not sure
 
 
 # --------------- Visualize state ---------------

@@ -9,3 +9,4 @@ octave-workspace
 data/
 figures/
 deprecated/
+test/
