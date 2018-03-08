@@ -4,7 +4,7 @@ from objective.objective_function import objective_function
 from system.execute_sequence import execute_sequence_2
 
 
-def evaluate_individual(ps, individual, action_map, verbose=0):
+def evaluate_individual(ps, individual, action_map, verbose=0, start_over=1):
 
     # Feasibility preserving evaluation
     store = []
@@ -45,20 +45,23 @@ def evaluate_individual(ps, individual, action_map, verbose=0):
 
         # RARE: if there are unexecutable actions in the store array after the inital gene is depleted:
         if len(init_gene) == 0 and flag == 0:
-            print('\nUnexecutable individual: reshuffling actions and starting over!\n ')
-            # Reshuffle the actions:
-            individual = np.random.permutation(list(action_map.keys()))
-            # Restart the evaluation process
-            store = []
-            final_gene = []
-            init_gene = list(individual)
-            gene_length = len(individual)
-            states = []
-            ps.reset()
-            state = deepcopy(ps.current_state)
-            islands = deepcopy(ps.islands)
-            fail_count += 1
-            if fail_count >= 5:
+            if start_over == 1:
+                print('\nUnexecutable individual: reshuffling actions and starting over!\n ')
+                # Reshuffle the actions:
+                individual = np.random.permutation(list(action_map.keys()))
+                # Restart the evaluation process
+                store = []
+                final_gene = []
+                init_gene = list(individual)
+                gene_length = len(individual)
+                states = []
+                ps.reset()
+                state = deepcopy(ps.current_state)
+                islands = deepcopy(ps.islands)
+                fail_count += 1
+                if fail_count >= 5:
+                    return [], [], [], []
+            else:
                 return [], [], [], []
 
         # Execute action in initial gene
@@ -84,7 +87,10 @@ def evaluate_individual(ps, individual, action_map, verbose=0):
     if len(final_gene) == gene_length:
         # Evaluate the objective function
         time_store, energy_store, cost_store = objective_function(states, ps.ideal_state, ps.metadata)
-        return time_store, energy_store, cost_store, final_gene
+        if cost_store['combined total'] < 0:
+            return [], [], [], []
+        else:
+            return time_store, energy_store, cost_store, final_gene
     else:
         return [], [], [], []
 

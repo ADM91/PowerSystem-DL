@@ -1,5 +1,3 @@
-import numpy as np
-from oct2py import octave
 from auxiliary.config_iceland import mp_opt,\
     dispatchable_loads,\
     ramp_rates,\
@@ -7,22 +5,12 @@ from auxiliary.config_iceland import mp_opt,\
     fixed_load_cost,\
     loss_cost,\
     disp_dev_cost, \
-    gen_load_char,\
     load_cost,\
     subset_branches_ind
-from system.PowerSystem import PowerSystem
-from system.pick_random_state import pick_random_state
-from system.combine_gen import combine_gen
 from optimize.genetic.genetic_alg_parallel import genetic_alg_parallel
 from optimize.genetic.icelandic_optimization_thread import icelandic_optimization_thread
-from system.combine_lines import combine_lines
 
 # Run GA parallel
-np.set_printoptions(precision=2)
-base_case = pick_random_state(octave)
-base_case.gen, base_case.gencost = combine_gen(base_case.gen, base_case.gencost)
-base_case.branch = combine_lines(base_case.branch)
-base_result = octave.runpf(base_case, mp_opt)
 spad_lim = 20
 verbose = 0
 verbose_state = 0
@@ -32,21 +20,21 @@ metadata = {'mp_opt': mp_opt,
             'fixed_load_cost': fixed_load_cost,
             'loss_cost': loss_cost,
             'disp_dev_cost': disp_dev_cost,
-            'gen_load_char': gen_load_char,
             'dispatchable_loads': dispatchable_loads,
             'load_cost': load_cost}
 ps_inputs = [metadata, spad_lim, verbose, verbose_state, subset_branches_ind]
 
 # for i in range(5):
 data = genetic_alg_parallel(ps_inputs,
-                            pop_size=4,
-                            iterations=2,
-                            optimizations=3,
+                            pop_size=10,
+                            iterations=12,
+                            optimizations=1000,
                             eta=0.9,
-                            folder='iceland_test_2',
+                            folder='icelandic_run_2',
                             save_data=1,
                             n_processes=3,
-                            fun=icelandic_optimization_thread)
+                            fun=icelandic_optimization_thread,
+                            log_file='failure_log.txt')
 
 # Bugs discovered:
 

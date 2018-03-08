@@ -1,5 +1,4 @@
 import numpy as np
-from auxiliary.set_opf_constraints import set_opf_constraints
 from system.take_snapshot import take_snapshot
 from copy import deepcopy
 

@@ -7,7 +7,6 @@ from auxiliary.config_iceland import mp_opt,\
     fixed_load_cost,\
     loss_cost,\
     disp_dev_cost, \
-    gen_load_char,\
     load_cost,\
     subset_branches_ind
 import numpy as np

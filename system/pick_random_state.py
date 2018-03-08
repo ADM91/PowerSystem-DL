@@ -4,7 +4,7 @@ from glob import glob
 
 def pick_random_state(octave):
 
-    files = glob('/home/alexander/Documents/MATLAB/alex parser/MPCfiles/*')
+    files = glob('/home/alexander/Documents/MATLAB/MPCfiles/*')
     n_files = len(files)
 
     # while True:
@@ -15,4 +15,4 @@ def pick_random_state(octave):
     # Switch all lines on
     base_case['branch'][:, 10] = 1
 
-    return base_case
+    return base_case, files[i]

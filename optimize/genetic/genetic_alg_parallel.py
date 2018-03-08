@@ -1,10 +1,11 @@
 from multiprocessing import Pool, Lock, Manager, Process, active_children
 from optimize.genetic.optimization_thread import optimization_parallel
 from time import sleep
+import pickle
 
 
 def genetic_alg_parallel(ps_inputs, pop_size, iterations, optimizations, eta, folder='test', save_data=1,
-                         n_processes=1, fun=optimization_parallel):
+                         n_processes=1, fun=optimization_parallel, log_file='log'):
 
     # Multiprocessing variables
     # pool = Pool(processes=n_processes)
@@ -14,7 +15,7 @@ def genetic_alg_parallel(ps_inputs, pop_size, iterations, optimizations, eta, fo
     # Create processes containing optimization
     processes = []
     for i in range(optimizations):
-        processes.append(Process(target=fun, args=(ps_inputs, pop_size, iterations, i, eta, folder, save_data)))
+        processes.append(Process(target=fun, args=(ps_inputs, pop_size, iterations, i, eta, folder, save_data, log_file)))
         # pool.apply_async(optimization_parallel, args=(ps_inputs, pop_size, iterations, i, eta, data, lock))
 
     # Run processes, limit total active processes to 7

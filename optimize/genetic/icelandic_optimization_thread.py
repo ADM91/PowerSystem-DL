@@ -13,9 +13,11 @@ import pickle
 from system.pick_random_state import pick_random_state
 from auxiliary.config_iceland import mp_opt
 from system.combine_gen import combine_gen
+from system.combine_lines import combine_lines
+from optimize.genetic.brute_force import brute_force
 
 
-def icelandic_optimization_thread(ps_inputs, pop_size, iterations, i, eta, folder, save_data):
+def icelandic_optimization_thread(ps_inputs, pop_size, iterations, i, eta, folder, save_data, log_file):
 
     np.random.seed()
 
@@ -29,8 +31,9 @@ def icelandic_optimization_thread(ps_inputs, pop_size, iterations, i, eta, folde
         deactivated = np.random.choice(subset_branches_ind, 4)  # Randomly choose 4 lines to deactivate
         ps = PowerSystem(metadata, spad_lim=spad_lim, deactivated=deactivated, verbose=verbose,
                          verbose_state=verbose_state)
-        base_case = pick_random_state(ps.octave)
+        base_case, case_file_name = pick_random_state(ps.octave)
         base_case.gen, base_case.gencost = combine_gen(base_case.gen, base_case.gencost)
+        base_case.branch = combine_lines(base_case.branch)
         base_result = ps.octave.runpf(base_case, mp_opt)
         success = ps.set_ideal_case(base_result)
         ps.reset()
@@ -40,17 +43,26 @@ def icelandic_optimization_thread(ps_inputs, pop_size, iterations, i, eta, folde
         n_actions = len(ps.action_list['line']) + len(ps.action_list['dispatch load']) + len(ps.action_list['fixed load']) + len(ps.action_list['gen'])
         a = n_actions < 9
         b = len(ps.action_list['line']) >= 3
-        print('number of islands: %s' % list_islands)
+        print('\nnumber of islands: %s' % list_islands)
         print('number of actions: %s' % n_actions)
         print('base case success: %s' % success)
-        print('lines deactivated: %s' % len(ps.action_list['line']))
+        print('lines deactivated: %s\n' % len(ps.action_list['line']))
+
+        # If case fails right off the bat, record in log file
+        if success == 0:
+            with open('/home/alexander/PycharmProjects/PowerSystem-RL-6/data/%s' % log_file, 'a') as f:
+                message = '%s, %s, %s\n' % (i, case_file_name, deactivated)
+                f.write(message)
         if a and b and success:
             break
 
-    # print(ps.action_list)
-
     action_map = create_action_map(ps.action_list)
     data['action map'] = action_map
+
+    # DO NOT run GA if there are 5 or fewer actions (5! = 120)
+    if n_actions <= 5:
+        brute_force(ps, base_result, action_map, i, data, save_data, folder)
+        return
 
     # Initialize population
     children = init_population(action_map, pop_size-1)
@@ -97,9 +109,7 @@ def icelandic_optimization_thread(ps_inputs, pop_size, iterations, i, eta, folde
         # Print cost of each individual
         order = np.argsort(cost_list)
         cost_list = np.array(cost_list)
-        # print(order)
-        # print(cost_list)
-        # print(population)
+
         print('\nOpt iter: %s GA gen %s' % (i, ii))
         print('population fitness: \n%s\n' % cost_list[order])
         print('population genes:\n%s\n' % population[order])
