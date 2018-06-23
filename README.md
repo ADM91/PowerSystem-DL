@@ -1,4 +1,4 @@
-# PowerSystem-RL #
+# PowerSystem-DL #
 This project aims to explore deep learning (DL) methods on power system restoration at the transmission level.
 
 A restoration simulator is built at the core of the project and serves as the environment with which the DL agent
